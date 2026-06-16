@@ -219,7 +219,7 @@ async function apiGet(url) {
 const res = await fetch(url);
 if (!res.ok) {
 let msg = 'Error ' + res.status;
-try { const j = await res.json(); msg = typeof j === 'object' ? (j.error || j.detail || JSON.stringify(j)) : String(j); } catch(e) { msg = 'Error ' + res.status; }
+try { const j = await res.json(); const e = j.error || j.detail || j.message || j; msg = typeof e === 'object' ? (e.message || e.error || JSON.stringify(e)) : String(e); } catch(e) { msg = 'Error ' + res.status; }
 throw new Error(msg);
 }
 return res.json();

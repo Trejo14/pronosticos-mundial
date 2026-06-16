@@ -479,21 +479,25 @@ class PredictionService:
         teams_cache: dict[int, TeamInfo] = {}
         for m in matches:
             for side, tid, tname, tabbr in [
-                ("home", m.home_team_id, m.home_team_name, m.home_team_tla),
-                ("away", m.away_team_id, m.away_team_name, m.away_team_tla),
+                ("home", m.home_team_id, m.home_team_name or "", m.home_team_tla or ""),
+                ("away", m.away_team_id, m.away_team_name or "", m.away_team_tla or ""),
             ]:
+                if not tname or not tid:
+                    continue
                 sid = str(tid)
                 if sid not in teams_cache:
                     teams_cache[sid] = TeamInfo(
                         espn_id=sid,
                         name=tname,
-                        abbreviation=tabbr or tname[:3].upper(),
+                        abbreviation=tabbr or (tname[:3].upper() if tname else "N/A"),
                         elo=self._team_elo_cache.get(sid, INITIAL_ELO),
                         attacking=self._team_att_def_cache.get(sid, {}).get("attacking", 1.0),
                         defensive=self._team_att_def_cache.get(sid, {}).get("defensive", 1.0),
                     )
 
         def match_to_dict(m) -> dict:
+            home_name = m.home_team_name or m.home_team_short or f"Team {m.home_team_id}"
+            away_name = m.away_team_name or m.away_team_short or f"Team {m.away_team_id}"
             d: dict[str, Any] = {
                 "id": m.id,
                 "matchday": m.matchday,
@@ -503,17 +507,17 @@ class PredictionService:
                 "group": m.group or "",
                 "home_team": {
                     "id": m.home_team_id,
-                    "name": m.home_team_name,
-                    "short": m.home_team_short,
-                    "tla": m.home_team_tla,
-                    "crest": m.home_team_crest,
+                    "name": home_name,
+                    "short": m.home_team_short or home_name,
+                    "tla": m.home_team_tla or "",
+                    "crest": m.home_team_crest or "",
                 },
                 "away_team": {
                     "id": m.away_team_id,
-                    "name": m.away_team_name,
-                    "short": m.away_team_short,
-                    "tla": m.away_team_tla,
-                    "crest": m.away_team_crest,
+                    "name": away_name,
+                    "short": m.away_team_short or away_name,
+                    "tla": m.away_team_tla or "",
+                    "crest": m.away_team_crest or "",
                 },
                 "score": {"home": m.score_home, "away": m.score_away, "winner": m.winner},
             }
@@ -536,6 +540,7 @@ class PredictionService:
 
         groups: dict[str, dict] = {}
         knockout: dict[str, list] = {}
+        try:
         for m in matches:
             md = match_to_dict(m)
             if m.stage == "GROUP_STAGE" and m.group:
@@ -562,3 +567,11 @@ class PredictionService:
             result["knockout"] = knockout
 
         return result
+        except Exception as e:
+            logger.error("predict_worldcup_processing_error", error=str(e))
+            if groups or knockout:
+                result = {"groups": groups, "standings": standings, "last_updated": datetime.now().isoformat(), "partial": True}
+                if knockout:
+                    result["knockout"] = knockout
+                return result
+            return {"error": f"Failed to process World Cup data: {e}"}
