@@ -66,24 +66,27 @@ class FootballDataClient:
     def _headers(self) -> dict[str, str]:
         return {"X-Auth-Token": self.api_key}
 
-    def _request(self, path: str) -> dict[str, Any]:
+    def _request(self, path: str) -> dict[str, Any] | None:
         url = f"{FOOTBALL_DATA_BASE}/{path.lstrip('/')}"
         try:
             with httpx.Client(timeout=self.timeout, headers=self._headers()) as client:
                 resp = client.get(url)
                 if resp.status_code == 429:
                     logger.warning("football_data_rate_limited")
+                    return None
                 resp.raise_for_status()
                 return resp.json()
         except httpx.HTTPStatusError as e:
             logger.error("football_data_http_error", url=url, status=e.response.status_code, error=str(e))
-            raise
+            return None
         except httpx.RequestError as e:
             logger.error("football_data_request_error", url=url, error=str(e))
-            raise
+            return None
 
     def get_competition_matches(self, competition_id: int = WC_COMPETITION_ID) -> list[FootballDataMatch]:
         data = self._request(f"competitions/{competition_id}/matches")
+        if data is None:
+            return []
         matches = []
         for m in data.get("matches", []):
             matches.append(FootballDataMatch(
@@ -111,6 +114,8 @@ class FootballDataClient:
 
     def get_competition_standings(self, competition_id: int = WC_COMPETITION_ID) -> dict[str, list[FootballDataStanding]]:
         data = self._request(f"competitions/{competition_id}/standings")
+        if data is None:
+            return {}
         groups: dict[str, list[FootballDataStanding]] = {}
         for s in data.get("standings", []):
             group_name = s.get("group", "TOTAL")
@@ -138,7 +143,7 @@ class FootballDataClient:
 
     def get_competition_teams(self, competition_id: int = WC_COMPETITION_ID) -> list[dict[str, Any]]:
         data = self._request(f"competitions/{competition_id}/teams")
-        return data.get("teams", [])
+        return data.get("teams", []) if data else []
 
-    def get_match(self, match_id: int) -> dict[str, Any]:
+    def get_match(self, match_id: int) -> dict[str, Any] | None:
         return self._request(f"matches/{match_id}")
