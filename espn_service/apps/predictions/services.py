@@ -541,32 +541,32 @@ class PredictionService:
         groups: dict[str, dict] = {}
         knockout: dict[str, list] = {}
         try:
-        for m in matches:
-            md = match_to_dict(m)
-            if m.stage == "GROUP_STAGE" and m.group:
-                g = m.group
-                if g not in groups:
-                    display = g.replace("GROUP_", "Grupo ")
-                    groups[g] = {"name": display, "standings": standings.get(g, []), "matches": []}
-                groups[g]["matches"].append(md)
-            else:
-                stage = m.stage or "UNKNOWN"
-                if stage not in knockout:
-                    knockout[stage] = []
-                knockout[stage].append(md)
+            for m in matches:
+                md = match_to_dict(m)
+                if m.stage == "GROUP_STAGE" and m.group:
+                    g = m.group
+                    if g not in groups:
+                        display = g.replace("GROUP_", "Grupo ")
+                        groups[g] = {"name": display, "standings": standings.get(g, []), "matches": []}
+                    groups[g]["matches"].append(md)
+                else:
+                    stage = m.stage or "UNKNOWN"
+                    if stage not in knockout:
+                        knockout[stage] = []
+                    knockout[stage].append(md)
 
-        for g in groups.values():
-            g["matches"].sort(key=lambda x: (x["matchday"], x["utc_date"]))
+            for g in groups.values():
+                g["matches"].sort(key=lambda x: (x["matchday"], x["utc_date"]))
 
-        result: dict[str, Any] = {
-            "groups": groups,
-            "standings": standings,
-            "last_updated": datetime.now().isoformat(),
-        }
-        if knockout:
-            result["knockout"] = knockout
+            result: dict[str, Any] = {
+                "groups": groups,
+                "standings": standings,
+                "last_updated": datetime.now().isoformat(),
+            }
+            if knockout:
+                result["knockout"] = knockout
 
-        return result
+            return result
         except Exception as e:
             logger.error("predict_worldcup_processing_error", error=str(e))
             if groups or knockout:
