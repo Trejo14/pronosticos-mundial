@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pronósticos Mundial 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card:#1e293b;--card-hover:#334155;--border:#334155;--text:#f1f5f9;--text-muted:#94a3b8;--primary:#3b82f6;--primary-hover:#2563eb;--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--radius:12px;--radius-sm:8px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid var(--border);padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.header h1{font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#3b82f6,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header span{font-size:.875rem;color:var(--text-muted);-webkit-text-fill-color:var(--text-muted)}
+.nav{display:flex;gap:.25rem;padding:.75rem 2rem;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
+.nav button{padding:.625rem 1.25rem;border:none;background:transparent;color:var(--text-muted);font-family:inherit;font-size:.875rem;font-weight:500;cursor:pointer;border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s}
+.nav button:hover{color:var(--text);background:var(--card-hover)}
+.nav button.active{color:var(--primary);background:rgba(59,130,246,.15)}
+.main{max-width:1200px;margin:0 auto;padding:2rem}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem}
+.card h2{font-size:1.125rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.loading{text-align:center;padding:3rem;color:var(--text-muted)}.loading::after{content:'';display:block;width:32px;height:32px;margin:1rem auto;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{padding:1rem;color:var(--danger);background:rgba(239,68,68,.1);border-radius:var(--radius-sm);margin-bottom:1rem;font-size:.875rem}
+.form-row{display:flex;gap:1rem;flex-wrap:wrap;align-items:end;margin-bottom:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.375rem}
+.form-group label{font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+.form-group input,.form-group select{padding:.5rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.875rem}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary)}
+.btn{padding:.5rem 1.25rem;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--primary-hover)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.match-header{display:flex;align-items:center;justify-content:center;gap:2rem;padding:1rem 0}
+.team{text-align:center;flex:1}.team .name{font-size:1.25rem;font-weight:700;margin-bottom:.25rem}.team .score{font-size:.875rem;color:var(--text-muted)}
+.vs{font-size:1.5rem;font-weight:800;color:var(--text-muted)}
+.outcomes{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem}
+.outcome-card{padding:1.25rem;background:var(--bg);border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border)}
+.outcome-card .label{font-size:.75rem;text-transform:uppercase;font-weight:600;color:var(--text-muted);letter-spacing:.05em}
+.outcome-card .prob{font-size:1.75rem;font-weight:800;margin:.5rem 0}
+.outcome-card .odds{font-size:.875rem;color:var(--text-muted)}
+.outcome-card .edge{font-size:.75rem;margin-top:.375rem;padding:.25rem .5rem;border-radius:4px;display:inline-block}
+.outcome-card .edge.positive{background:rgba(34,197,94,.15);color:var(--success)}
+.outcome-card .edge.negative{background:rgba(239,68,68,.15);color:var(--danger)}
+.outcome-card.highlight{border-color:var(--success);box-shadow:0 0 20px rgba(34,197,94,.1)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:1rem}
+.stat{padding:1rem;background:var(--bg);border-radius:var(--radius-sm);text-align:center}
+.stat .value{font-size:1.5rem;font-weight:700;color:var(--primary)}
+.stat .label{font-size:.75rem;color:var(--text-muted);margin-top:.25rem}
+.recommendation{padding:1rem;border-radius:var(--radius-sm);margin-top:1rem;font-size:.875rem;font-weight:500}
+.recommendation.bet{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)}
+.recommendation.no-bet{background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.3);color:var(--text-muted)}
+.tournament-table{width:100%;border-collapse:collapse;font-size:.875rem}
+.tournament-table th{padding:.75rem .5rem;text-align:left;font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.tournament-table td{padding:.625rem .5rem;border-bottom:1px solid var(--border)}
+.tournament-table tr:hover td{background:var(--card-hover)}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;min-width:120px}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.value-list{display:grid;gap:1rem}
+.value-item{display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);flex-wrap:wrap;gap:.75rem}
+.value-item .info{flex:1;min-width:200px}
+.value-item .info .teams{font-weight:600;font-size:.9375rem}
+.value-item .info .date{font-size:.75rem;color:var(--text-muted);margin-top:.125rem}
+.value-item .stats{display:flex;gap:1.5rem;flex-wrap:wrap}
+.value-item .stats div{text-align:center}
+.value-item .stats .num{font-weight:700;font-size:1rem}
+.value-item .stats .lbl{font-size:.6875rem;color:var(--text-muted);text-transform:uppercase}
+.text-success{color:var(--success)}.text-warning{color:var(--warning)}.text-danger{color:var(--danger)}
+@media(max-width:768px){.main{padding:1rem}.match-header{flex-direction:column;gap:1rem}.outcomes{grid-template-columns:1fr}.header{flex-direction:column;text-align:center;padding:1rem}.nav{padding:.5rem 1rem}}
+</style>
+</head>
+<body>
+<header class="header">
+<div><h1>⚽ Pronósticos Mundial 2026</h1><span>Predicciones con Poisson + Elo + Monte Carlo</span></div>
+<div style="font-size:.75rem;color:var(--text-muted)">API v1</div>
+</header>
+
+<nav class="nav" id="nav">
+<button class="active" data-tab="match">Partido</button>
+<button data-tab="tournament">Torneo</button>
+<button data-tab="upcoming">Próximos</button>
+<button data-tab="valuebets">Value Bets</button>
+</nav>
+
+<main class="main">
+<div class="tab active" id="tab-match">
+<div class="card">
+<h2>🔮 Predecir Partido</h2>
+<div class="form-row">
+<div class="form-group"><label>Event ID</label><input type="text" id="match-event" placeholder="Ej: 760432"></div>
+<div class="form-group"><label>Liga</label><select id="match-league"><option value="fifa.world">FIFA World Cup</option></select></div>
+<button class="btn" onclick="predictMatch()">Predecir</button>
+</div>
+<div id="match-result"></div>
+</div>
+</div>
+
+<div class="tab" id="tab-tournament">
+<div class="card">
+<h2>🏆 Simular Torneo</h2>
+<div class="form-row">
+<div class="form-group"><label>Simulaciones</label><input type="number" id="tourney-sims" value="2000" min="100" max="50000"></div>
+<div class="form-group"><label>Liga</label><select id="tourney-league"><option value="fifa.world">FIFA World Cup</option></select></div>
+<button class="btn" onclick="simulateTournament()">Simular</button>
+</div>
+<div id="tournament-result"></div>
+</div>
+</div>
+
+<div class="tab" id="tab-upcoming">
+<div class="card">
+<h2>📅 Próximos Partidos</h2>
+<div class="form-row">
+<div class="form-group"><label>Días</label><input type="number" id="upcoming-days" value="7" min="1" max="30"></div>
+<div class="form-group"><label>Liga</label><select id="upcoming-league"><option value="fifa.world">FIFA World Cup</option></select></div>
+<button class="btn" onclick="loadUpcoming()">Buscar</button>
+</div>
+<div id="upcoming-result"></div>
+</div>
+</div>
+
+<div class="tab" id="tab-valuebets">
+<div class="card">
+<h2>💰 Value Bets</h2>
+<div class="form-row">
+<div class="form-group"><label>Edge mínimo</label><input type="number" id="vb-edge" value="0.05" min="0" max="1" step="0.01"></div>
+<div class="form-group"><label>Días</label><input type="number" id="vb-days" value="7" min="1" max="30"></div>
+<button class="btn" onclick="loadValueBets()">Buscar</button>
+</div>
+<div id="valuebets-result"></div>
+</div>
+</div>
+</main>
+
+<script>
+const BASE = '/api/v1/predictions';
+
+// Navigation
+document.querySelectorAll('#nav button').forEach(btn => {
+btn.addEventListener('click', () => {
+document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+btn.classList.add('active');
+document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+});
+});
+
+function showLoading(el) { el.innerHTML = '<div class="loading">Cargando...</div>'; }
+function showError(el, msg) { el.innerHTML = '<div class="error">' + msg + '</div>'; }
+
+async function apiGet(url) {
+const res = await fetch(url);
+if (!res.ok) {
+let msg = `Error ${res.status}`;
+try { const j = await res.json(); msg = j.error || j.detail || msg; } catch(e) {}
+throw new Error(msg);
+}
+return res.json();
+}
+
+// Match prediction
+async function predictMatch() {
+const el = document.getElementById('match-result');
+showLoading(el);
+try {
+const eventId = document.getElementById('match-event').value.trim();
+const league = document.getElementById('match-league').value;
+const params = new URLSearchParams({ league });
+if (eventId) params.set('event_id', eventId);
+const data = await apiGet(`${BASE}/match/?${params}`);
+renderMatch(el, data);
+} catch(e) { showError(el, e.message); }
+}
+
+function renderMatch(el, d) {
+if (!d) { showError(el, 'Sin datos'); return; }
+const p = d.predictions || {};
+const homeP = p.home_win || {}; const drawP = p.draw || {}; const awayP = p.away_win || {};
+const best = [homeP, drawP, awayP].reduce((a,b) => (b.edge||0) > (a.edge||0) ? b : a);
+const highlight = (best.edge||0) > 0 ? (p.home_win === best ? 'home' : p.draw === best ? 'draw' : 'away') : null;
+
+el.innerHTML = `
+<div class="match-header">
+<div class="team"><div class="name">${d.home_team||'Local'}</div><div class="score">${d.team_strength?.home?.toFixed(2)||''}</div></div>
+<div class="vs">VS</div>
+<div class="team"><div class="name">${d.away_team||'Visitante'}</div><div class="score">${d.team_strength?.away?.toFixed(2)||''}</div></div>
+</div>
+<div class="stats-grid">
+<div class="stat"><div class="value">${d.expected_goals?.home?.toFixed(2)||'-'}</div><div class="label">Goles Esperados Local</div></div>
+<div class="stat"><div class="value">${d.expected_goals?.away?.toFixed(2)||'-'}</div><div class="label">Goles Esperados Visita</div></div>
+<div class="stat"><div class="value">${(d.confidence*100).toFixed(0)}%</div><div class="label">Confianza</div></div>
+<div class="stat"><div class="value" style="color:${d.risk?.label==='low'?'var(--success)':d.risk?.label==='medium'?'var(--warning)':'var(--danger)'}">${(d.risk?.label||'N/A').toUpperCase()}</div><div class="label">Riesgo</div></div>
+</div>
+<div class="outcomes">
+${['home_win','draw','away_win'].map((k,i)=>{
+const o = p[k]||{}; const labels = ['Local','Empate','Visita'];
+const isBest = highlight === (['home','draw','away'][i]);
+return `<div class="outcome-card${isBest?' highlight':''}">
+<div class="label">${labels[i]}</div>
+<div class="prob">${(o.probability*100).toFixed(1)}%</div>
+<div class="odds">Cuota: ${o.expected_odds?.toFixed(2)||'-'}${o.best_odds?` / Mejor: ${o.best_odds.toFixed(2)}`:''}</div>
+${o.edge!=null?`<div class="edge ${o.edge>=0?'positive':'negative'}">Edge: ${(o.edge*100).toFixed(1)}%</div>`:''}
+${o.kelly!=null?`<div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem">Kelly: ${(o.kelly*100).toFixed(1)}%</div>`:''}
+</div>`;
+}).join('')}
+</div>
+${d.recommendation?`<div class="recommendation ${d.recommendation.action==='bet'?'bet':'no-bet'}">${d.recommendation.message||''}</div>`:''}
+`;
+}
+
+// Tournament simulation
+async function simulateTournament() {
+const el = document.getElementById('tournament-result');
+showLoading(el);
+try {
+const sims = document.getElementById('tourney-sims').value || 2000;
+const league = document.getElementById('tourney-league').value;
+const data = await apiGet(`${BASE}/tournament/?simulations=${sims}&league=${league}`);
+renderTournament(el, data);
+} catch(e) { showError(el, e.message); }
+}
+
+function renderTournament(el, d) {
+if (!d || !d.predictions?.length) { showError(el, 'Sin datos'); return; }
+const sorted = [...d.predictions].sort((a,b) => b.win_probability - a.win_probability);
+const maxProb = sorted[0]?.win_probability || 1;
+el.innerHTML = `<p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem">Basado en ${d.simulations?.toLocaleString()||'?'} simulaciones Monte Carlo</p>
+<div style="overflow-x:auto"><table class="tournament-table">
+<thead><tr><th>#</th><th>Equipo</th><th>Ganador</th><th>Final</th><th>Semis</th><th>Cuartos</th></tr></thead>
+<tbody>${sorted.map((t,i)=>`<tr>
+<td style="font-weight:600;color:var(--text-muted)">${i+1}</td>
+<td style="font-weight:600">${t.team}</td>
+<td><div class="bar"><div class="bar-fill" style="width:${(t.win_probability/maxProb*100).toFixed(0)}%;background:linear-gradient(90deg,var(--primary),#a855f7)"></div></div><span style="font-size:.75rem;color:var(--text-muted)">${(t.win_probability*100).toFixed(1)}%</span></td>
+<td>${(t.reach_final_probability*100).toFixed(1)}%</td>
+<td>${(t.reach_semis_probability*100).toFixed(1)}%</td>
+<td>${(t.reach_quarters_probability*100).toFixed(1)}%</td>
+</tr>`).join('')}</tbody></table></div>`;
+}
+
+// Upcoming matches
+async function loadUpcoming() {
+const el = document.getElementById('upcoming-result');
+showLoading(el);
+try {
+const days = document.getElementById('upcoming-days').value || 7;
+const league = document.getElementById('upcoming-league').value;
+const data = await apiGet(`${BASE}/upcoming/?days_ahead=${days}&league=${league}`);
+renderUpcoming(el, data);
+} catch(e) { showError(el, e.message); }
+}
+
+function renderUpcoming(el, data) {
+const items = Array.isArray(data) ? data : [];
+if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--text-muted)">No hay partidos próximos con datos de odds disponibles.</p></div>'; return; }
+el.innerHTML = items.map(d => {
+const p = d.predictions || {};
+const all = [p.home_win, p.draw, p.away_win].filter(Boolean);
+const best = all.reduce((a,b) => (b.edge||0) > (a.edge||0) ? b : a, {});
+return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:.5rem">
+<div><h2 style="margin-bottom:.25rem">${d.match||'vs'}</h2><span style="font-size:.75rem;color:var(--text-muted)">${d.match_date?new Date(d.match_date).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):''}</span></div>
+<span style="font-size:.75rem;padding:.25rem .5rem;background:var(--bg);border-radius:4px;color:var(--text-muted)">${d.event_id||''}</span>
+</div>
+<div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap">
+<div><span style="font-size:.75rem;color:var(--text-muted)">Local</span><div style="font-weight:700">${(p.home_win?.probability*100).toFixed(0)||'-'}%</div></div>
+<div><span style="font-size:.75rem;color:var(--text-muted)">Empate</span><div style="font-weight:700">${(p.draw?.probability*100).toFixed(0)||'-'}%</div></div>
+<div><span style="font-size:.75rem;color:var(--text-muted)">Visita</span><div style="font-weight:700">${(p.away_win?.probability*100).toFixed(0)||'-'}%</div></div>
+${best.edge>0?`<div><span style="font-size:.75rem;color:var(--text-muted)">Mejor Edge</span><div style="font-weight:700;color:var(--success)">${(best.edge*100).toFixed(1)}%</div></div>`:''}
+</div>
+${d.recommendation?.message?`<div class="recommendation ${d.recommendation.action==='bet'?'bet':'no-bet'}" style="margin-top:.75rem">${d.recommendation.message}</div>`:''}
+</div>`;
+}).join('');
+}
+
+// Value bets
+async function loadValueBets() {
+const el = document.getElementById('valuebets-result');
+showLoading(el);
+try {
+const edge = document.getElementById('vb-edge').value || 0.05;
+const days = document.getElementById('vb-days').value || 7;
+const data = await apiGet(`${BASE}/value-bets/?min_edge=${edge}&days_ahead=${days}&limit=20`);
+renderValueBets(el, data);
+} catch(e) { showError(el, e.message); }
+}
+
+function renderValueBets(el, data) {
+const items = data?.results || (Array.isArray(data) ? data : []);
+if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--text-muted)">No se encontraron value bets con el edge mínimo especificado.</p></div>'; return; }
+el.innerHTML = `<p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem">${items.length} apuestas con valor encontradas</p>
+<div class="value-list">${items.map(d => `
+<div class="value-item">
+<div class="info">
+<div class="teams">${d.match||d.outcome||'N/A'}</div>
+<div class="date">${d.match_date?new Date(d.match_date).toLocaleDateString('es-MX'):''} ${d.event_id?'· ID: '+d.event_id:''}</div>
+</div>
+<div class="stats">
+<div><div class="num">${(d.our_probability*100).toFixed(0)}%</div><div class="lbl">Prob.</div></div>
+<div><div class="num">${d.best_odds?.toFixed(2)||'-'}</div><div class="lbl">Cuota</div></div>
+<div><div class="num ${d.edge>=0?'text-success':'text-danger'}">${(d.edge*100).toFixed(1)}%</div><div class="lbl">Edge</div></div>
+<div><div class="num">${(d.kelly_fraction*100).toFixed(1)}%</div><div class="lbl">Kelly</div></div>
+<div><div class="num" style="color:${d.risk_label==='low'?'var(--success)':d.risk_label==='medium'?'var(--warning)':'var(--danger)'}">${d.risk_label||'N/A'}</div><div class="lbl">Riesgo</div></div>
+</div>
+</div>`).join('')}</div>`;
+}
+
+// Auto-load match prediction on page load
+predictMatch();
+</script>
+</body>
+</html>

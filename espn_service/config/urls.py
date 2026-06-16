@@ -9,8 +9,11 @@ from drf_spectacular.views import (
 )
 
 from apps.core.views import HealthCheckView
+from apps.predictions.views import frontend
 
 urlpatterns = [
+    # Frontend
+    path("", frontend, name="frontend"),
     # Admin
     path("admin/", admin.site.urls),
     # Health check

@@ -6,6 +6,7 @@ from apps.predictions.views import (
     TournamentPredictionView,
     UpcomingMatchesView,
     ValueBetsView,
+    frontend,
 )
 
 app_name = "predictions"

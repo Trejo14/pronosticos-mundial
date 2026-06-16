@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
+from django.shortcuts import render
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, views
 from rest_framework.request import Request
@@ -233,3 +234,8 @@ class ValueBetsView(views.APIView):
             "count": len(value_bets),
             "results": value_bets,
         })
+
+
+def frontend(request):
+    """Render the predictions frontend SPA."""
+    return render(request, "predictions/frontend.html")
