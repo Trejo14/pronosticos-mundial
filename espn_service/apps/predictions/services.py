@@ -393,9 +393,8 @@ class PredictionService:
 
         events = data.get("events", [])
         results = []
-        now = datetime.now()
-
         from django.utils import timezone
+        now = timezone.now()
 
         for event in events:
             event_date_str = event.get("date", "")

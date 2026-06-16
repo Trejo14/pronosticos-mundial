@@ -197,11 +197,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <div class="tab" id="tab-valuebets">
 <div class="card">
 <h2>💰 Value Bets</h2>
-<div class="form-row">
-<div class="form-group"><label>Edge mínimo</label><input type="number" id="vb-edge" value="0.05" min="0" max="1" step="0.01"></div>
-<div class="form-group"><label>Días</label><input type="number" id="vb-days" value="7" min="1" max="30"></div>
-<button class="btn" onclick="loadValueBets()">Buscar</button>
-</div>
 <div id="vb-content"></div>
 </div>
 </div>
@@ -632,9 +627,7 @@ const el = document.getElementById('vb-content');
 if (!el) return;
 showLoading(el);
 try {
-const edge = document.getElementById('vb-edge').value || 0.05;
-const days = document.getElementById('vb-days').value || 7;
-const data = await apiGet(BASE + '/value-bets/?min_edge='+edge+'&days_ahead='+days+'&limit=50');
+const data = await apiGet(BASE + '/value-bets/?min_edge=0&days_ahead=7&limit=50');
 renderValueBets(el, data);
 } catch(e) { showError(el, e.message); }
 }
@@ -665,7 +658,7 @@ html += '<input type="number" id="vb-stake-amount" value="100" min="0" step="10"
 html += '</div>';
 
 html += '<div class="vb-grid">';
-for (const d of best) {
+best.forEach((d, idx) => {
 const odds = d.best_odds || d.expected_odds || 1;
 const edge = d.edge || 0;
 const kelly = d.kelly_fraction || 0;
@@ -684,10 +677,10 @@ html += '<div class="vb-stat"><div class="vbv">'+(d.risk_label||'N/A')+'</div><d
 html += '</div>';
 html += '<div class="vb-stake">';
 html += '<span style="font-size:.8125rem;font-weight:500">Ganancia potencial:</span>';
-html += '<span class="profit" id="vb-profit-' + (best.indexOf(d)) + '">$0.00</span>';
+html += '<span class="profit" id="vb-profit-' + idx + '">$0.00</span>';
 html += '</div>';
 html += '</div>';
-}
+});
 html += '</div>';
 
 el.innerHTML = html;
