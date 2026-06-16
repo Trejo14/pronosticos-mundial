@@ -428,3 +428,137 @@ class PredictionService:
 
         results.sort(key=lambda x: x.get("match_date", ""))
         return results
+
+    def predict_worldcup(
+        self,
+        football_data_client=None,
+    ) -> dict[str, Any]:
+        from clients.football_data_client import FootballDataClient
+        from apps.predictions.prediction_engine import predict_match as engine_predict_match
+
+        fb_client = football_data_client or FootballDataClient()
+        if not fb_client.api_key:
+            return {"error": "FOOTBALL_DATA_API_KEY not configured"}
+
+        try:
+            matches = fb_client.get_competition_matches()
+            standings_raw = fb_client.get_competition_standings()
+        except Exception as e:
+            logger.error("football_data_fetch_failed", error=str(e))
+            return {"error": f"Failed to fetch World Cup data: {e}"}
+
+        def normalize_group(name: str) -> str:
+            n = name.upper().replace(" ", "_")
+            if not n.startswith("GROUP_"):
+                n = "GROUP_" + n
+            return n
+
+        standings = {}
+        for group_name, table in standings_raw.items():
+            normalized = normalize_group(group_name)
+            standings[normalized] = [
+                {
+                    "position": s.position,
+                    "team_id": s.team_id,
+                    "team_name": s.team_name,
+                    "team_short": s.team_short,
+                    "team_tla": s.team_tla,
+                    "team_crest": s.team_crest,
+                    "played": s.played,
+                    "won": s.won,
+                    "draw": s.draw,
+                    "lost": s.lost,
+                    "points": s.points,
+                    "goals_for": s.goals_for,
+                    "goals_against": s.goals_against,
+                    "goal_difference": s.goal_difference,
+                }
+                for s in table
+            ]
+
+        teams_cache: dict[int, TeamInfo] = {}
+        for m in matches:
+            for side, tid, tname, tabbr in [
+                ("home", m.home_team_id, m.home_team_name, m.home_team_tla),
+                ("away", m.away_team_id, m.away_team_name, m.away_team_tla),
+            ]:
+                sid = str(tid)
+                if sid not in teams_cache:
+                    teams_cache[sid] = TeamInfo(
+                        espn_id=sid,
+                        name=tname,
+                        abbreviation=tabbr or tname[:3].upper(),
+                        elo=self._team_elo_cache.get(sid, INITIAL_ELO),
+                        attacking=self._team_att_def_cache.get(sid, {}).get("attacking", 1.0),
+                        defensive=self._team_att_def_cache.get(sid, {}).get("defensive", 1.0),
+                    )
+
+        def match_to_dict(m) -> dict:
+            d: dict[str, Any] = {
+                "id": m.id,
+                "matchday": m.matchday,
+                "status": m.status,
+                "utc_date": m.utc_date,
+                "stage": m.stage or "",
+                "group": m.group or "",
+                "home_team": {
+                    "id": m.home_team_id,
+                    "name": m.home_team_name,
+                    "short": m.home_team_short,
+                    "tla": m.home_team_tla,
+                    "crest": m.home_team_crest,
+                },
+                "away_team": {
+                    "id": m.away_team_id,
+                    "name": m.away_team_name,
+                    "short": m.away_team_short,
+                    "tla": m.away_team_tla,
+                    "crest": m.away_team_crest,
+                },
+                "score": {"home": m.score_home, "away": m.score_away, "winner": m.winner},
+            }
+            if m.status in ("TIMED", "SCHEDULED"):
+                home_info = teams_cache.get(str(m.home_team_id))
+                away_info = teams_cache.get(str(m.away_team_id))
+                if home_info and away_info:
+                    pred = engine_predict_match(home_info, away_info, espn_win_probs=None)
+                    d["prediction"] = {
+                        "home_win": pred.home_win,
+                        "draw": pred.draw,
+                        "away_win": pred.away_win,
+                        "expected_goals_home": pred.expected_goals_home,
+                        "expected_goals_away": pred.expected_goals_away,
+                        "home_strength": pred.home_strength,
+                        "away_strength": pred.away_strength,
+                        "confidence": pred.confidence,
+                    }
+            return d
+
+        groups: dict[str, dict] = {}
+        knockout: dict[str, list] = {}
+        for m in matches:
+            md = match_to_dict(m)
+            if m.stage == "GROUP_STAGE" and m.group:
+                g = m.group
+                if g not in groups:
+                    display = g.replace("GROUP_", "Grupo ")
+                    groups[g] = {"name": display, "standings": standings.get(g, []), "matches": []}
+                groups[g]["matches"].append(md)
+            else:
+                stage = m.stage or "UNKNOWN"
+                if stage not in knockout:
+                    knockout[stage] = []
+                knockout[stage].append(md)
+
+        for g in groups.values():
+            g["matches"].sort(key=lambda x: (x["matchday"], x["utc_date"]))
+
+        result: dict[str, Any] = {
+            "groups": groups,
+            "standings": standings,
+            "last_updated": datetime.now().isoformat(),
+        }
+        if knockout:
+            result["knockout"] = knockout
+
+        return result

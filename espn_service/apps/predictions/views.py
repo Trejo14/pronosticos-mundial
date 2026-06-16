@@ -236,6 +236,29 @@ class ValueBetsView(views.APIView):
         })
 
 
+class WorldCupDashboardView(views.APIView):
+    """Full World Cup 2026 dashboard: all matches by group + standings + predictions."""
+
+    @extend_schema(
+        responses={200: dict},
+    )
+    def get(self, request: Request) -> Response:
+        from clients.football_data_client import FootballDataClient
+
+        fb_client = FootballDataClient()
+        from clients.espn_client import ESPNClient
+        from clients.stats_api_client import StatsAPIClient
+
+        espn_client = ESPNClient()
+        stats_client = StatsAPIClient()
+        service = PredictionService(espn_client, stats_client)
+
+        result = service.predict_worldcup(football_data_client=fb_client)
+        if "error" in result:
+            return Response(result, status=status.HTTP_502_BAD_GATEWAY)
+        return Response(result)
+
+
 def frontend(request):
     """Render the predictions frontend SPA."""
     return render(request, "predictions/frontend.html")

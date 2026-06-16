@@ -223,6 +223,9 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
+# Football-data.org API key
+FOOTBALL_DATA_API_KEY = env("FOOTBALL_DATA_API_KEY", default="")
+
 # ESPN Client settings
 ESPN_CLIENT = {
     # Domain URLs — override in .env if needed

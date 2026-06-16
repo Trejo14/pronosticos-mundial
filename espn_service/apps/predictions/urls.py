@@ -6,6 +6,7 @@ from apps.predictions.views import (
     TournamentPredictionView,
     UpcomingMatchesView,
     ValueBetsView,
+    WorldCupDashboardView,
     frontend,
 )
 
@@ -16,4 +17,5 @@ urlpatterns = [
     path("tournament/", TournamentPredictionView.as_view(), name="tournament-prediction"),
     path("upcoming/", UpcomingMatchesView.as_view(), name="upcoming-matches"),
     path("value-bets/", ValueBetsView.as_view(), name="value-bets"),
+    path("worldcup/", WorldCupDashboardView.as_view(), name="worldcup-dashboard"),
 ]
