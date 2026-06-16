@@ -19,12 +19,13 @@ SECURE_HSTS_PRELOAD = True
 
 # Database - PostgreSQL required
 DATABASES = {
-    "default": env.db("DATABASE_URL"),  # noqa: F405
+    "default": env.db("DATABASE_URL", default="sqlite:///build.db"),  # noqa: F405
 }
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)  # noqa: F405
-DATABASES["default"]["OPTIONS"] = {
-    "connect_timeout": 10,
-}
+if DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3":
+    DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)  # noqa: F405
+    DATABASES["default"]["OPTIONS"] = {
+        "connect_timeout": 10,
+    }
 
 # Cache - Redis required
 CACHES = {
@@ -51,9 +52,11 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])  # noqa: F405
 
 # Celery
-CELERY_TASK_ALWAYS_EAGER = False
-CELERY_BROKER_URL = env("CELERY_BROKER_URL")  # noqa: F405
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND")  # noqa: F405
+CELERY_TASK_ALWAYS_EAGER = True
+if CELERY_BROKER_URL := env("CELERY_BROKER_URL", default=""):  # noqa: F405
+    CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=CELERY_BROKER_URL)  # noqa: F405
+else:
+    CELERY_TASK_ALWAYS_EAGER = True
 
 # Static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

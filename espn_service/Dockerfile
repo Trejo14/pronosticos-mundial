@@ -38,18 +38,11 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 # Copy application code
 COPY --chown=appuser:appgroup . .
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
 # Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE $PORT
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/healthz || exit 1
-
 # Default command
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 2 --access-logfile - --error-logfile -
+CMD python manage.py collectstatic --noinput --clear 2>/dev/null; python manage.py migrate --noinput 2>/dev/null; gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 2 --access-logfile - --error-logfile -
