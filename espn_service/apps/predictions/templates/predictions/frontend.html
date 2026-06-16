@@ -112,10 +112,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .btts-badge{padding:.375rem .75rem;border-radius:6px;font-size:.8125rem;font-weight:600}
 .btts-badge.yes{background:rgba(34,197,94,.12);color:var(--success)}
 .btts-badge.no{background:rgba(239,68,68,.12);color:var(--danger)}
-.best-line{padding:.75rem 1rem;border-radius:var(--radius-sm);margin-top:.75rem;font-size:.875rem;font-weight:600;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
-.best-line.positive{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)}
-.best-line.neutral{background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.3);color:var(--text-muted)}
-.best-line .bl-label{font-size:.6875rem;font-weight:400;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-top:1rem}
+.rec-card{padding:.75rem 1rem;border-radius:var(--radius-sm);text-align:center}
+.rec-card.resultado{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25)}
+.rec-card.overunder{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25)}
+.rec-card.btts{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.25)}
+.rec-card .rec-icon{font-size:1rem;margin-bottom:.25rem}
+.rec-card .rec-label{font-size:.625rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.125rem}
+.rec-card .rec-value{font-size:1.125rem;font-weight:700}
+.rec-card .rec-pct{font-size:.75rem;color:var(--text-muted)}
+.rec-card.resultado .rec-value{color:var(--primary)}
+.rec-card.overunder .rec-value{color:var(--warning)}
+.rec-card.btts .rec-value{color:var(--info)}
 /* Value Bets */
 .vb-grid{display:grid;gap:1rem}
 .vb-item{padding:1.25rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)}
@@ -588,14 +596,22 @@ bodyHtml += '<div class="btts-badge yes">Sí '+(btts*100).toFixed(0)+'%</div>';
 bodyHtml += '<div class="btts-badge no">No '+((1-btts)*100).toFixed(0)+'%</div>';
 bodyHtml += '</div>';
 
-// Best line
+// Recommendations
 if (isScheduled && hw !== null) {
 const maxP = Math.max(hw, dw, aw);
-const bestLabel = hw === maxP ? 'Local' : dw === maxP ? 'Empate' : 'Visita';
-const bestPct = (maxP*100).toFixed(0);
-const conf = p.confidence ?? 0.6;
-const adj = (maxP * conf * 100).toFixed(0);
-bodyHtml += '<div class="best-line positive"><span class="bl-label">★ Mejor Línea</span> '+bestLabel+' ('+bestPct+'%) · Confianza: '+(conf*100).toFixed(0)+'% · Valor: '+adj+'/100</div>';
+const winnerLabel = hw === maxP ? 'Local' : dw === maxP ? 'Empate' : 'Visita';
+const winnerPct = (maxP*100).toFixed(0);
+const o25rec = o25 > 0.5 ? (1 - o25 < o25 ? 'Over 2.5' : 'Under 2.5') : 'Under 2.5';
+const o25pct = o25 > 0.5 ? (o25*100).toFixed(0) : ((1-o25)*100).toFixed(0);
+const bttsRec = btts > 0.5 ? 'Sí' : 'No';
+const bttsPct = btts > 0.5 ? (btts*100).toFixed(0) : ((1-btts)*100).toFixed(0);
+const confLvl = (maxP > 0.45 ? 'Alta' : maxP > 0.35 ? 'Media' : 'Baja');
+bodyHtml += '<div class="lbl-section">🎯 Recomendaciones</div>';
+bodyHtml += '<div class="rec-grid">';
+bodyHtml += '<div class="rec-card resultado"><div class="rec-icon">🏆</div><div class="rec-label">Resultado</div><div class="rec-value">'+winnerLabel+'</div><div class="rec-pct">'+winnerPct+'% · Conf. '+confLvl+'</div></div>';
+bodyHtml += '<div class="rec-card overunder"><div class="rec-icon">📊</div><div class="rec-label">Over/Under</div><div class="rec-value">'+o25rec+'</div><div class="rec-pct">'+o25pct+'%</div></div>';
+bodyHtml += '<div class="rec-card btts"><div class="rec-icon">⚽</div><div class="rec-label">BTTS</div><div class="rec-value">'+bttsRec+'</div><div class="rec-pct">'+bttsPct+'%</div></div>';
+bodyHtml += '</div>';
 }
 } else if (isLive) {
 bodyHtml += '<div style="padding:.5rem;color:var(--success);font-weight:600;text-align:center">🔴 Partido en vivo</div>';
@@ -627,56 +643,64 @@ const el = document.getElementById('vb-content');
 if (!el) return;
 showLoading(el);
 try {
-const data = await apiGet(BASE + '/value-bets/?min_edge=0&days_ahead=7&limit=50');
-renderValueBets(el, data);
+if (!wcData) wcData = await apiGet(BASE + '/worldcup/');
+const all = flatMatches(wcData);
+const upcoming = all.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+renderValueBets(el, upcoming);
 } catch(e) { showError(el, e.message); }
 }
 
-function renderValueBets(el, data) {
-const items = data?.results || (Array.isArray(data) ? data : []);
-
-// Group by match, keep only best line per match
-const byMatch = {};
-for (const item of items) {
-const key = item.match || item.event_id || item.outcome || 'unknown';
-if (!byMatch[key] || (item.edge || 0) > (byMatch[key].edge || 0)) {
-byMatch[key] = item;
-}
-}
-const best = Object.values(byMatch).sort((a, b) => (b.edge || 0) - (a.edge || 0));
-
-if (!best.length) {
-el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0">No se encontraron value bets.</p>';
+function renderValueBets(el, matches) {
+if (!matches.length) {
+el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0">No hay partidos próximos con predicciones.</p>';
 return;
 }
 
-let html = '<p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem">'+best.length+' apuestas con valor encontradas · Mejor línea por partido</p>';
+let html = '<p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem">'+matches.length+' partidos disponibles · Mejores apuestas del Mundial</p>';
 
 html += '<div class="stake-input-top">';
-html += '<label>💰 Cantidad a apostar:</label>';
+html += '<label>💰 Cantidad a apostar ($):</label>';
 html += '<input type="number" id="vb-stake-amount" value="100" min="0" step="10" oninput="updateVBProfits()">';
 html += '</div>';
 
 html += '<div class="vb-grid">';
-best.forEach((d, idx) => {
-const odds = d.best_odds || d.expected_odds || 1;
-const edge = d.edge || 0;
-const kelly = d.kelly_fraction || 0;
-const prob = d.our_probability || 0;
+matches.forEach((m, idx) => {
+const p = m.prediction || {};
+const expH = p.expected_goals_home ?? null;
+const expA = p.expected_goals_away ?? null;
+const hw = p.home_win || 0;
+const dw = p.draw || 0;
+const aw = p.away_win || 0;
+const maxP = Math.max(hw, dw, aw);
+const winnerLabel = hw === maxP ? 'Local' : dw === maxP ? 'Empate' : 'Visita';
+const winnerPct = (maxP*100).toFixed(0);
+const o25 = expH !== null ? overProb(expH, expA, 2.5) : 0;
+const o25rec = o25 > 0.5 ? 'Over 2.5' : 'Under 2.5';
+const o25pct = (Math.max(o25, 1-o25)*100).toFixed(0);
+const btts = expH !== null ? bttsProb(expH, expA) : 0;
+const bttsRec = btts > 0.5 ? 'Sí' : 'No';
+const bttsPct = (Math.max(btts, 1-btts)*100).toFixed(0);
+const odds = (1 / maxP).toFixed(2);
+
+const hn = m.home_team?.short || m.home_team?.name || '?';
+const an = m.away_team?.short || m.away_team?.name || '?';
+const dateStr = m.utc_date ? new Date(m.utc_date).toLocaleDateString('es-MX', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+
 html += '<div class="vb-item" data-odds="'+odds+'">';
 html += '<div class="vb-header">';
-html += '<div><div class="vb-match">'+(d.match||d.outcome||'N/A')+'</div>';
-html += '<div class="vb-date">'+(d.outcome||'')+(d.match_date?' · '+new Date(d.match_date).toLocaleDateString('es-MX'):'')+'</div></div>';
+html += '<div><div class="vb-match">'+hn+' vs '+an+'</div>';
+html += '<div class="vb-date">'+dateStr+(m.group?' · '+m.group.replace('GROUP_','Grupo '):'')+'</div></div>';
 html += '</div>';
 html += '<div class="vb-body">';
-html += '<div class="vb-stat"><div class="vbv">'+(prob*100).toFixed(0)+'%</div><div class="vbl">Prob.</div></div>';
-html += '<div class="vb-stat"><div class="vbv">'+odds.toFixed(2)+'</div><div class="vbl">Cuota</div></div>';
-html += '<div class="vb-stat"><div class="vbv positive">'+(edge*100).toFixed(1)+'%</div><div class="vbl">Edge</div></div>';
-html += '<div class="vb-stat"><div class="vbv '+(kelly>=0.1?'positive':kelly>0?'warning':'')+'">'+(kelly*100).toFixed(1)+'%</div><div class="vbl">Kelly</div></div>';
-html += '<div class="vb-stat"><div class="vbv">'+(d.risk_label||'N/A')+'</div><div class="vbl">Riesgo</div></div>';
+html += '<div class="vb-stat"><div class="vbv" style="color:var(--primary)">'+winnerLabel+'</div><div class="vbl">Resultado</div></div>';
+html += '<div class="vb-stat"><div class="vbv">'+winnerPct+'%</div><div class="vbl">Prob.</div></div>';
+html += '<div class="vb-stat"><div class="vbv">'+odds+'</div><div class="vbl">Cuota Est.</div></div>';
+html += '<div class="vb-stat"><div class="vbv" style="color:var(--warning)">'+o25rec+'</div><div class="vbl">O/U</div></div>';
+html += '<div class="vb-stat"><div class="vbv" style="color:var(--info)">'+bttsRec+'</div><div class="vbl">BTTS</div></div>';
+html += '<div class="vb-stat"><div class="vbv" style="color:'+(maxP>0.4?'var(--success)':maxP>0.3?'var(--warning)':'var(--danger)')+'">'+(maxP>0.4?'Alta':maxP>0.3?'Media':'Baja')+'</div><div class="vbl">Confianza</div></div>';
 html += '</div>';
 html += '<div class="vb-stake">';
-html += '<span style="font-size:.8125rem;font-weight:500">Ganancia potencial:</span>';
+html += '<span style="font-size:.8125rem;font-weight:500">'+winnerLabel+':</span>';
 html += '<span class="profit" id="vb-profit-' + idx + '">$0.00</span>';
 html += '</div>';
 html += '</div>';
