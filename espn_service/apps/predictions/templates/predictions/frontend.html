@@ -190,18 +190,18 @@
                 <!-- Simulación inicial para UI, luego se puede llenar con API -->
                 <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Hit Rate (Top 1 Pick)</h3>
-                    <div class="text-5xl font-black text-emerald-400 mb-2">68.4%</div>
-                    <p class="text-xs text-slate-400">Predicciones correctas vs. cuota de cierre.</p>
+                    <div class="text-5xl font-black text-emerald-400 mb-2" id="calib-hit-rate">--%</div>
+                    <p class="text-xs text-slate-400">Predicciones correctas vs. resultado real (Basado en <span id="calib-count">0</span> partidos).</p>
                 </div>
                 <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">ROI Histórico</h3>
-                    <div class="text-5xl font-black text-emerald-400 mb-2">+12.5%</div>
-                    <p class="text-xs text-slate-400">Retorno de Inversión simulado con Kelly 1/4.</p>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Exact Accuracy</h3>
+                    <div class="text-5xl font-black text-emerald-400 mb-2" id="calib-exact">--%</div>
+                    <p class="text-xs text-slate-400">Porcentaje de marcadores exactos acertados.</p>
                 </div>
                 <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Brier Score</h3>
-                    <div class="text-5xl font-black text-indigo-400 mb-2">0.142</div>
-                    <p class="text-xs text-slate-400">Precisión probabilística (más bajo es mejor).</p>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Brier Score / BSS</h3>
+                    <div class="text-5xl font-black text-indigo-400 mb-2" id="calib-brier">--</div>
+                    <p class="text-xs text-slate-400">Precisión probabilística (más bajo es mejor). BSS: <span id="calib-bss">--</span>.</p>
                 </div>
                 <div class="col-span-full glass-card rounded-2xl p-6 mt-4">
                     <h3 class="text-sm font-bold text-white mb-4">Gráfico de Rendimiento (Simulado)</h3>
@@ -252,6 +252,7 @@
                     if (btn.dataset.tab === 'worldcup') loadWorldCup();
                     else if (btn.dataset.tab === 'today') loadToday();
                     else if (btn.dataset.tab === 'valuebets') loadValueBets();
+                    else if (btn.dataset.tab === 'calibration') loadCalibration();
                 });
             });
         }
@@ -269,6 +270,19 @@
         function updateTimestamp() {
             const el = document.getElementById('last-update');
             if (el) el.textContent = `Última act: ${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}`;
+        }
+
+        async function loadCalibration() {
+            try {
+                const data = await apiCall('/calibration/');
+                document.getElementById('calib-hit-rate').textContent = (data.accuracy * 100).toFixed(1) + '%';
+                document.getElementById('calib-exact').textContent = (data.exact_accuracy * 100).toFixed(1) + '%';
+                document.getElementById('calib-brier').textContent = data.brier_avg.toFixed(3);
+                document.getElementById('calib-bss').textContent = data.brier_skill_score.toFixed(3);
+                document.getElementById('calib-count').textContent = data.count;
+            } catch (e) {
+                console.error('Calibration error:', e);
+            }
         }
 
         // ──────── WORLD CUP ────────
