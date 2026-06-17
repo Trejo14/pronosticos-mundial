@@ -1093,7 +1093,7 @@ html += '</div>';
 }
 
 document.getElementById('modal-title').textContent = hn+' vs '+an;
-body.innerHTML = html;
+document.getElementById('modal-body').innerHTML = html;
 }
 // Auto-load on page open
 loadWorldCup();
