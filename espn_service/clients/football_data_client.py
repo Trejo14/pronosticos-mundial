@@ -18,6 +18,42 @@ WC_COMPETITION_ID = 2000
 
 
 @dataclass
+class FootballDataGoal:
+    minute: int
+    injury_time: int | None
+    type: str
+    team_id: int
+    team_name: str
+    scorer_id: int | None
+    scorer_name: str | None
+    assist_id: int | None
+    assist_name: str | None
+    score_home: int
+    score_away: int
+
+
+@dataclass
+class FootballDataBooking:
+    minute: int
+    team_id: int
+    team_name: str
+    player_id: int | None
+    player_name: str | None
+    card: str
+
+
+@dataclass
+class FootballDataSubstitution:
+    minute: int
+    team_id: int
+    team_name: str
+    player_out_id: int | None
+    player_out_name: str | None
+    player_in_id: int | None
+    player_in_name: str | None
+
+
+@dataclass
 class FootballDataMatch:
     id: int
     utc_date: str
@@ -38,6 +74,11 @@ class FootballDataMatch:
     score_home: int | None
     score_away: int | None
     winner: str | None
+    score_halftime_home: int | None = None
+    score_halftime_away: int | None = None
+    goals: list[FootballDataGoal] | None = None
+    bookings: list[FootballDataBooking] | None = None
+    substitutions: list[FootballDataSubstitution] | None = None
 
 
 @dataclass
@@ -89,6 +130,59 @@ class FootballDataClient:
             return []
         matches = []
         for m in data.get("matches", []):
+            goals_list = None
+            raw_goals = m.get("goals")
+            if raw_goals:
+                goals_list = []
+                for g in raw_goals:
+                    scorer = g.get("scorer") or {}
+                    assist = g.get("assist") or {}
+                    team = g.get("team") or {}
+                    goals_list.append(FootballDataGoal(
+                        minute=g.get("minute", 0),
+                        injury_time=g.get("injuryTime"),
+                        type=g.get("type", "GOAL"),
+                        team_id=team.get("id", 0),
+                        team_name=team.get("name", ""),
+                        scorer_id=scorer.get("id"),
+                        scorer_name=scorer.get("name"),
+                        assist_id=assist.get("id"),
+                        assist_name=assist.get("name"),
+                        score_home=(g.get("score") or {}).get("home", 0),
+                        score_away=(g.get("score") or {}).get("away", 0),
+                    ))
+            bookings_list = None
+            raw_bookings = m.get("bookings")
+            if raw_bookings:
+                bookings_list = []
+                for b in raw_bookings:
+                    player = b.get("player") or {}
+                    team = b.get("team") or {}
+                    bookings_list.append(FootballDataBooking(
+                        minute=b.get("minute", 0),
+                        team_id=team.get("id", 0),
+                        team_name=team.get("name", ""),
+                        player_id=player.get("id"),
+                        player_name=player.get("name"),
+                        card=b.get("card", "YELLOW_CARD"),
+                    ))
+            subs_list = None
+            raw_subs = m.get("substitutions")
+            if raw_subs:
+                subs_list = []
+                for s in raw_subs:
+                    player_out = s.get("playerOut") or {}
+                    player_in = s.get("playerIn") or {}
+                    team = s.get("team") or {}
+                    subs_list.append(FootballDataSubstitution(
+                        minute=s.get("minute", 0),
+                        team_id=team.get("id", 0),
+                        team_name=team.get("name", ""),
+                        player_out_id=player_out.get("id"),
+                        player_out_name=player_out.get("name"),
+                        player_in_id=player_in.get("id"),
+                        player_in_name=player_in.get("name"),
+                    ))
             matches.append(FootballDataMatch(
                 id=m["id"],
                 utc_date=m["utcDate"],
@@ -109,6 +203,11 @@ class FootballDataClient:
                 score_home=m.get("score", {}).get("fullTime", {}).get("home"),
                 score_away=m.get("score", {}).get("fullTime", {}).get("away"),
                 winner=m.get("score", {}).get("winner"),
+                score_halftime_home=m.get("score", {}).get("halfTime", {}).get("home"),
+                score_halftime_away=m.get("score", {}).get("halfTime", {}).get("away"),
+                goals=goals_list,
+                bookings=bookings_list,
+                substitutions=subs_list,
             ))
         return matches
 

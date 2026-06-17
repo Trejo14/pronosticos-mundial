@@ -35,8 +35,43 @@ from apps.predictions.tournament_simulator import (
     build_world_cup_2026_group_stage,
     simulate_tournament,
 )
+from clients.football_data_client import (
+    FootballDataMatch,
+    FootballDataGoal,
+    FootballDataBooking,
+    FootballDataSubstitution,
+)
 
 logger = structlog.get_logger(__name__)
+
+
+def _events_to_dict(goals, bookings, substitutions) -> dict:
+    out: dict[str, list] = {"goals": [], "bookings": [], "substitutions": []}
+    if goals:
+        for g in goals:
+            out["goals"].append({
+                "minute": g.minute, "injury_time": g.injury_time, "type": g.type,
+                "team_id": g.team_id, "team_name": g.team_name,
+                "scorer_id": g.scorer_id, "scorer_name": g.scorer_name,
+                "assist_id": g.assist_id, "assist_name": g.assist_name,
+                "score_home": g.score_home, "score_away": g.score_away,
+            })
+    if bookings:
+        for b in bookings:
+            out["bookings"].append({
+                "minute": b.minute, "card": b.card,
+                "team_id": b.team_id, "team_name": b.team_name,
+                "player_id": b.player_id, "player_name": b.player_name,
+            })
+    if substitutions:
+        for s in substitutions:
+            out["substitutions"].append({
+                "minute": s.minute,
+                "team_id": s.team_id, "team_name": s.team_name,
+                "player_out_id": s.player_out_id, "player_out_name": s.player_out_name,
+                "player_in_id": s.player_in_id, "player_in_name": s.player_in_name,
+            })
+    return out
 
 
 class PredictionService:
@@ -428,6 +463,158 @@ class PredictionService:
         results.sort(key=lambda x: x.get("match_date", ""))
         return results
 
+    def get_match_detail(self, match_id: int) -> dict[str, Any]:
+        from clients.football_data_client import FootballDataClient
+        fb_client = FootballDataClient()
+        raw = fb_client.get_match(match_id)
+        if not raw:
+            return {"error": "Match not found"}
+        match_data = raw.get("match", raw)
+        from apps.predictions.feature_engineering import INITIAL_ELO
+        m = FootballDataMatch(
+            id=match_data["id"],
+            utc_date=match_data["utcDate"],
+            status=match_data["status"],
+            matchday=match_data.get("matchday", 0),
+            stage=match_data.get("stage", ""),
+            group=match_data.get("group"),
+            home_team_id=match_data["homeTeam"]["id"],
+            home_team_name=match_data["homeTeam"]["name"],
+            home_team_short=match_data["homeTeam"].get("shortName", match_data["homeTeam"]["name"]),
+            home_team_tla=match_data["homeTeam"].get("tla", ""),
+            home_team_crest=match_data["homeTeam"].get("crest", ""),
+            away_team_id=match_data["awayTeam"]["id"],
+            away_team_name=match_data["awayTeam"]["name"],
+            away_team_short=match_data["awayTeam"].get("shortName", match_data["awayTeam"]["name"]),
+            away_team_tla=match_data["awayTeam"].get("tla", ""),
+            away_team_crest=match_data["awayTeam"].get("crest", ""),
+            score_home=match_data.get("score", {}).get("fullTime", {}).get("home"),
+            score_away=match_data.get("score", {}).get("fullTime", {}).get("away"),
+            winner=match_data.get("score", {}).get("winner"),
+            score_halftime_home=match_data.get("score", {}).get("halfTime", {}).get("home"),
+            score_halftime_away=match_data.get("score", {}).get("halfTime", {}).get("away"),
+            goals=[
+                FootballDataGoal(
+                    minute=g.get("minute", 0), injury_time=g.get("injuryTime"),
+                    type=g.get("type", "GOAL"),
+                    team_id=(g.get("team") or {}).get("id", 0),
+                    team_name=(g.get("team") or {}).get("name", ""),
+                    scorer_id=(g.get("scorer") or {}).get("id"),
+                    scorer_name=(g.get("scorer") or {}).get("name"),
+                    assist_id=(g.get("assist") or {}).get("id"),
+                    assist_name=(g.get("assist") or {}).get("name"),
+                    score_home=(g.get("score") or {}).get("home", 0),
+                    score_away=(g.get("score") or {}).get("away", 0),
+                ) for g in (match_data.get("goals") or [])
+            ] if match_data.get("goals") else None,
+            bookings=[
+                FootballDataBooking(
+                    minute=b.get("minute", 0),
+                    team_id=(b.get("team") or {}).get("id", 0),
+                    team_name=(b.get("team") or {}).get("name", ""),
+                    player_id=(b.get("player") or {}).get("id"),
+                    player_name=(b.get("player") or {}).get("name"),
+                    card=b.get("card", "YELLOW_CARD"),
+                ) for b in (match_data.get("bookings") or [])
+            ] if match_data.get("bookings") else None,
+            substitutions=[
+                FootballDataSubstitution(
+                    minute=s.get("minute", 0),
+                    team_id=(s.get("team") or {}).get("id", 0),
+                    team_name=(s.get("team") or {}).get("name", ""),
+                    player_out_id=(s.get("playerOut") or {}).get("id"),
+                    player_out_name=(s.get("playerOut") or {}).get("name"),
+                    player_in_id=(s.get("playerIn") or {}).get("id"),
+                    player_in_name=(s.get("playerIn") or {}).get("name"),
+                ) for s in (match_data.get("substitutions") or [])
+            ] if match_data.get("substitutions") else None,
+        )
+        sid_home = str(m.home_team_id)
+        sid_away = str(m.away_team_id)
+
+        def _info(tid, name, tla, crest):
+            return {
+                "id": tid, "name": name, "short": name, "tla": tla, "crest": crest,
+            }
+
+        result = {
+            "id": m.id,
+            "status": m.status,
+            "utc_date": m.utc_date,
+            "stage": m.stage,
+            "group": m.group,
+            "matchday": m.matchday,
+            "home_team": _info(m.home_team_id, m.home_team_name, m.home_team_tla, m.home_team_crest),
+            "away_team": _info(m.away_team_id, m.away_team_name, m.away_team_tla, m.away_team_crest),
+            "score": {"home": m.score_home, "away": m.score_away, "winner": m.winner},
+            "halftime_score": {"home": m.score_halftime_home, "away": m.score_halftime_away},
+        }
+        if m.goals or m.bookings or m.substitutions:
+            result["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
+
+        # Run prediction if teams are cached
+        home_info = teams_cache.get(sid_home) if hasattr(self, '_team_elo_cache') else None
+        away_info = teams_cache.get(sid_away) if hasattr(self, '_team_elo_cache') else None
+        if not home_info or not away_info:
+            home_info = TeamInfo(espn_id=sid_home, name=m.home_team_name, abbreviation=m.home_team_tla or m.home_team_name[:3].upper())
+            away_info = TeamInfo(espn_id=sid_away, name=m.away_team_name, abbreviation=m.away_team_tla or m.away_team_name[:3].upper())
+        pred = engine_predict_match(home_info, away_info, espn_win_probs=None)
+        result["prediction"] = {
+            "home_win": pred.home_win,
+            "draw": pred.draw,
+            "away_win": pred.away_win,
+            "expected_goals_home": pred.expected_goals_home,
+            "expected_goals_away": pred.expected_goals_away,
+            "home_strength": pred.home_strength,
+            "away_strength": pred.away_strength,
+            "confidence": pred.confidence,
+        }
+        # Build exact scores list
+        from apps.predictions.prediction_engine import poisson_prob as pp
+        expH = pred.expected_goals_home
+        expA = pred.expected_goals_away
+        exact_scores = []
+        for i in range(9):
+            for j in range(9):
+                p = pp(i, expH) * pp(j, expA)
+                if p > 0.005:
+                    exact_scores.append({"home": i, "away": j, "probability": round(p, 4)})
+        exact_scores.sort(key=lambda x: x["probability"], reverse=True)
+        result["exact_scores"] = exact_scores[:10]
+
+        # Build specials / markets
+        from apps.predictions.prediction_engine import poisson_prob as pp2
+        result["markets"] = {
+            "over_under": {
+                "over_2_5": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j > 2.5), 4),
+                "under_2_5": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j < 2.5), 4),
+                "over_3_5": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j > 3.5), 4),
+                "under_3_5": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j < 3.5), 4),
+            },
+            "both_teams_score": {
+                "yes": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(1, 9) for j in range(1, 9)), 4),
+                "no": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i == 0 or j == 0) - (pp2(0, expH) * pp2(0, expA)), 4),
+            },
+            "double_chance": {
+                "home_or_draw": round(pred.home_win + pred.draw, 4),
+                "home_or_away": round(pred.home_win + pred.away_win, 4),
+                "draw_or_away": round(pred.draw + pred.away_win, 4),
+            },
+            "exact_goals": {},
+        }
+        for total_g in range(7):
+            p = sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j == total_g)
+            if p > 0.01:
+                result["markets"]["exact_goals"][str(total_g)] = round(p, 4)
+
+        # Player specials (simulated based on expected goals)
+        result["specials"] = {
+            "anytime_goalscorer": f"Jugador de {home_info.name if expH > expA else away_info.name} (mayor probabilidad de gol)",
+            "player_cards": "Depende de las cuotas en vivo",
+            "corners": "Disponible con datos de estadísticas en vivo",
+        }
+        return result
+
     def predict_worldcup(
         self,
         football_data_client=None,
@@ -519,6 +706,7 @@ class PredictionService:
                     "crest": m.away_team_crest or "",
                 },
                 "score": {"home": m.score_home, "away": m.score_away, "winner": m.winner},
+                "halftime_score": {"home": m.score_halftime_home, "away": m.score_halftime_away},
             }
             if m.status in ("TIMED", "SCHEDULED"):
                 home_info = teams_cache.get(str(m.home_team_id))
@@ -535,6 +723,8 @@ class PredictionService:
                         "away_strength": pred.away_strength,
                         "confidence": pred.confidence,
                     }
+            if m.status in ("IN_PLAY", "FINISHED") and (m.goals or m.bookings or m.substitutions):
+                d["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
             return d
 
         groups: dict[str, dict] = {}

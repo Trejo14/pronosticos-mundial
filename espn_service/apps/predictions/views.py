@@ -236,6 +236,29 @@ class ValueBetsView(views.APIView):
         })
 
 
+class MatchDetailView(views.APIView):
+    """Full detail for a single match: live events, prediction, exact scores, markets, specials."""
+
+    def get(self, request: Request, match_id: int) -> Response:
+        from clients.football_data_client import FootballDataClient
+        from clients.espn_client import ESPNClient
+        from clients.stats_api_client import StatsAPIClient
+
+        espn_client = ESPNClient()
+        stats_client = StatsAPIClient()
+        service = PredictionService(espn_client, stats_client)
+
+        try:
+            result = service.get_match_detail(match_id)
+        except Exception as e:
+            logger.error("match_detail_failed", match_id=match_id, error=str(e))
+            return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        if "error" in result:
+            return Response(result, status=status.HTTP_404_NOT_FOUND)
+        return Response(result)
+
+
 class WorldCupDashboardView(views.APIView):
     """Full World Cup 2026 dashboard: all matches by group + standings + predictions."""
 
