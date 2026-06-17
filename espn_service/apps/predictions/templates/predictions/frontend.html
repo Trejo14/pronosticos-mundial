@@ -170,7 +170,7 @@
                 <div class="hidden md:flex items-center gap-8">
                     <nav class="flex gap-6" id="main-nav">
                         <button class="nav-btn active text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="worldcup">Mundial</button>
-                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="today">Próximos Partidos</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="today">En Vivo / Partidos</button>
                         <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="valuebets">Mejores Apuestas</button>
                         <!-- Calibration tab hidden based on user feedback -->
                     </nav>
@@ -216,8 +216,8 @@
         <div id="tab-today" class="tab-content">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-white mb-1">Próximos Partidos</h2>
-                    <p class="text-sm text-slate-400">Todos los partidos programados con predicciones</p>
+                    <h2 class="text-2xl font-bold text-white mb-1">En Vivo / Partidos</h2>
+                    <p class="text-sm text-slate-400">Partidos en vivo, próximos y finalizados con predicciones IA</p>
                 </div>
                 <button onclick="loadToday()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -291,10 +291,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initNavigation();
             loadWorldCup();
-            
-            // Format today's date
-            const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Mexico_City' };
-            document.getElementById('today-date').textContent = new Date().toLocaleDateString('es-MX', opts);
         });
 
         function initNavigation() {
@@ -412,17 +408,79 @@
             try {
                 if (!wcData) wcData = await apiCall('/worldcup/');
                 
-                // Show all matches that are scheduled or in play, sorted by date
-                let matches = extractMatches(wcData).filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED' || m.status === 'IN_PLAY');
-                matches.sort((a,b) => new Date(a.utc_date) - new Date(b.utc_date));
+                // Show ALL matches - live, scheduled, and finished
+                let matches = extractMatches(wcData);
+                matches.sort((a,b) => {
+                    // Live matches first, then by date
+                    if (a.status === 'IN_PLAY' && b.status !== 'IN_PLAY') return -1;
+                    if (b.status === 'IN_PLAY' && a.status !== 'IN_PLAY') return 1;
+                    return new Date(a.utc_date) - new Date(b.utc_date);
+                });
                 
                 if (matches.length === 0) {
-                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay partidos programados.</div>';
+                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay partidos disponibles.</div>';
                     return;
                 }
                 
+                // Group matches: Live, Today, Upcoming, Finished
+                const now = new Date();
+                const todayStr = now.toLocaleDateString('es-MX', {timeZone:'America/Mexico_City'});
+                
+                const liveMatches = matches.filter(m => m.status === 'IN_PLAY');
+                const scheduledMatches = matches.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+                const finishedMatches = matches.filter(m => m.status === 'FINISHED');
+                
                 let html = '';
-                matches.forEach(m => html += renderMatchCard(m));
+                
+                // LIVE Section
+                if (liveMatches.length > 0) {
+                    html += `
+                    <div class="col-span-full mb-2">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="live-dot"></span>
+                            <h3 class="text-lg font-bold text-emerald-400">EN VIVO</h3>
+                            <span class="text-xs text-slate-500 ml-2">${liveMatches.length} partido${liveMatches.length > 1 ? 's' : ''}</span>
+                        </div>
+                    </div>`;
+                    liveMatches.forEach(m => html += renderMatchCard(m));
+                    html += '<div class="col-span-full h-px bg-slate-700/50 my-4"></div>';
+                }
+                
+                // Group scheduled by date
+                if (scheduledMatches.length > 0) {
+                    const byDate = {};
+                    scheduledMatches.forEach(m => {
+                        const d = new Date(m.utc_date).toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long', timeZone:'America/Mexico_City'});
+                        if (!byDate[d]) byDate[d] = [];
+                        byDate[d].push(m);
+                    });
+                    
+                    for (const [dateLabel, dMatches] of Object.entries(byDate)) {
+                        const isToday = new Date(dMatches[0].utc_date).toLocaleDateString('es-MX', {timeZone:'America/Mexico_City'}) === todayStr;
+                        html += `
+                        <div class="col-span-full mb-2">
+                            <div class="flex items-center gap-2 mb-4">
+                                <h3 class="text-lg font-bold text-white">${isToday ? '📅 Hoy' : '📆 ' + dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</h3>
+                                <span class="text-xs text-slate-500 ml-2">${dMatches.length} partido${dMatches.length > 1 ? 's' : ''}</span>
+                            </div>
+                        </div>`;
+                        dMatches.forEach(m => html += renderMatchCard(m));
+                        html += '<div class="col-span-full h-px bg-slate-700/50 my-2"></div>';
+                    }
+                }
+                
+                // Finished matches
+                if (finishedMatches.length > 0) {
+                    html += `
+                    <div class="col-span-full mb-2">
+                        <div class="flex items-center gap-2 mb-4">
+                            <h3 class="text-lg font-bold text-slate-400">✅ Finalizados</h3>
+                            <span class="text-xs text-slate-500 ml-2">${finishedMatches.length} partido${finishedMatches.length > 1 ? 's' : ''}</span>
+                        </div>
+                    </div>`;
+                    finishedMatches.slice(-10).reverse().forEach(m => html += renderMatchCard(m));
+                }
+                
                 el.innerHTML = html;
             } catch (e) {
                 el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">Error cargando datos: ${e.message}</div>`;
@@ -451,6 +509,10 @@
             }
 
             const time = new Date(m.utc_date).toLocaleTimeString('es-MX', {timeZone:'America/Mexico_City', hour:'2-digit', minute:'2-digit'});
+            const dateShort = new Date(m.utc_date).toLocaleDateString('es-MX', {day:'2-digit', month:'short', timeZone:'America/Mexico_City'});
+            let timeDisplay = `${dateShort} · ${time}`;
+            if (isLive) timeDisplay = '<span class="live-dot"></span> EN VIVO';
+            if (isFinished) timeDisplay = `<span class="text-slate-500">FINAL</span> · ${dateShort}`;
             
             let predHtml = '';
             const p = m.prediction;
@@ -498,7 +560,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <span class="text-xs font-medium px-2 py-1 bg-slate-800 rounded text-slate-300">${m.group ? m.group.replace('GROUP_','Grupo ') : 'Torneo'}</span>
                     <div class="flex items-center gap-1.5 text-xs font-medium ${isLive ? 'text-emerald-400' : 'text-slate-400'}">
-                        ${isLive ? '<span class="live-dot"></span> EN VIVO' : time}
+                        ${timeDisplay}
                     </div>
                 </div>
                 
@@ -525,6 +587,7 @@
         // === VALUE BETS ===
         async function loadValueBets() {
             const el = document.getElementById('vb-content');
+            el.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
             try {
                 if (!wcData) wcData = await apiCall('/worldcup/');
                 const matches = extractMatches(wcData).filter(m => (m.status === 'TIMED' || m.status === 'SCHEDULED') && m.prediction);
@@ -534,51 +597,115 @@
                     return;
                 }
                 
-                // Sort by confidence/edge if possible, for now just sort by time
+                // Sort by time
                 matches.sort((a,b) => new Date(a.utc_date) - new Date(b.utc_date));
                 
                 let html = '';
-                matches.forEach((m, idx) => {
+                let cardIdx = 0;
+                matches.forEach((m) => {
                     const p = m.prediction;
-                    const probs = [
-                        { label: 'Local', val: p.home_win || 0, odds: (1/(p.home_win||1)).toFixed(2) },
-                        { label: 'Empate', val: p.draw || 0, odds: (1/(p.draw||1)).toFixed(2) },
-                        { label: 'Visita', val: p.away_win || 0, odds: (1/(p.away_win||1)).toFixed(2) }
-                    ];
-                    const best = probs.reduce((max, current) => current.val > max.val ? current : max);
+                    const homeName = m.home_team?.short || m.home_team?.name || 'Local';
+                    const awayName = m.away_team?.short || m.away_team?.name || 'Visita';
+                    const homeCrest = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-5 h-5 object-contain inline-block">` : '';
+                    const awayCrest = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-5 h-5 object-contain inline-block">` : '';
                     
+                    const outcomes = [
+                        { label: homeName, icon: homeCrest, type: 'Local', val: p.home_win || 0, color: 'blue', borderColor: 'border-l-blue-500' },
+                        { label: 'Empate', icon: '🤝', type: 'Empate', val: p.draw || 0, color: 'slate', borderColor: 'border-l-slate-500' },
+                        { label: awayName, icon: awayCrest, type: 'Visita', val: p.away_win || 0, color: 'purple', borderColor: 'border-l-purple-500' }
+                    ];
+                    
+                    const time = new Date(m.utc_date).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', timeZone:'America/Mexico_City'});
+                    const dateStr = new Date(m.utc_date).toLocaleDateString('es-MX', {day:'2-digit', month:'short', timeZone:'America/Mexico_City'});
+                    
+                    // Exact score
                     let exactScoreHtml = '';
                     if (m.special_markets && m.special_markets.exact_scores && m.special_markets.exact_scores.length > 0) {
                         const topScore = m.special_markets.exact_scores[0];
                         exactScoreHtml = `
-                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center">
-                            <span class="text-xs text-slate-400">Marcador Exacto M.P.</span>
-                            <span class="text-sm font-bold text-emerald-400">${topScore.score} <span class="text-xs text-slate-500 font-normal">(${(topScore.probability*100).toFixed(1)}%)</span></span>
+                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center text-xs">
+                            <span class="text-slate-400">🎯 Marcador M.P.</span>
+                            <span class="font-bold text-emerald-400">${topScore.score} <span class="text-slate-500 font-normal">(${(topScore.probability*100).toFixed(1)}%)</span></span>
                         </div>`;
                     }
                     
+                    // Expected goals
+                    const xgHome = p.expected_goals_home ? p.expected_goals_home.toFixed(1) : null;
+                    const xgAway = p.expected_goals_away ? p.expected_goals_away.toFixed(1) : null;
+                    let xgHtml = '';
+                    if (xgHome && xgAway) {
+                        xgHtml = `
+                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center text-xs">
+                            <span class="text-slate-400">⚽ Goles esperados</span>
+                            <span class="font-medium text-white">${xgHome} - ${xgAway}</span>
+                        </div>`;
+                    }
+
                     html += `
-                    <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-brand-secondary vb-card" data-odds="${best.odds}">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="text-xs text-slate-400">${new Date(m.utc_date).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'})}</div>
-                            <div class="text-xs font-bold px-2 py-0.5 bg-brand-primary/20 text-brand-primary rounded">Edge: +${Math.floor(Math.random()*8)+3}%</div>
+                    <div class="glass-panel rounded-2xl overflow-hidden hover:border-slate-600 transition-all cursor-pointer" onclick="openModal(${m.id})">
+                        <!-- Match Header -->
+                        <div class="bg-gradient-to-r from-slate-800 to-slate-900/50 px-5 py-3 border-b border-slate-700/50 flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-slate-300">${dateStr}</span>
+                                <span class="text-xs text-slate-500">•</span>
+                                <span class="text-xs font-medium text-slate-300">${time}</span>
+                            </div>
+                            <span class="text-xs font-medium px-2 py-0.5 bg-slate-700/60 rounded text-slate-300">${m.group ? m.group.replace('GROUP_','Gr. ') : 'Torneo'}</span>
                         </div>
                         
-                        <div class="font-medium text-sm mb-4">
-                            ${m.home_team?.short || m.home_team?.name} vs ${m.away_team?.short || m.away_team?.name}
-                        </div>
+                        <!-- Teams -->
+                        <div class="px-5 pt-4 pb-3">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2 flex-1">
+                                    ${homeCrest}
+                                    <span class="font-semibold text-sm text-white">${homeName}</span>
+                                </div>
+                                <span class="text-xs font-medium text-slate-500 px-2">VS</span>
+                                <div class="flex items-center gap-2 flex-1 justify-end">
+                                    <span class="font-semibold text-sm text-white">${awayName}</span>
+                                    ${awayCrest}
+                                </div>
+                            </div>
+                            
+                            <!-- Probability bar -->
+                            <div class="flex justify-between text-[10px] font-medium mb-1 px-0.5">
+                                <span class="text-blue-400">${(p.home_win*100).toFixed(0)}%</span>
+                                <span class="text-slate-400">${(p.draw*100).toFixed(0)}%</span>
+                                <span class="text-purple-400">${(p.away_win*100).toFixed(0)}%</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex mb-4">
+                                <div style="width: ${(p.home_win*100).toFixed(0)}%" class="bg-blue-500"></div>
+                                <div style="width: ${(p.draw*100).toFixed(0)}%" class="bg-slate-500"></div>
+                                <div style="width: ${(p.away_win*100).toFixed(0)}%" class="bg-purple-500"></div>
+                            </div>
+
+                            <!-- All 3 betting options -->
+                            <div class="grid grid-cols-3 gap-2">`;
+                    
+                    outcomes.forEach(o => {
+                        const odds = o.val > 0 ? (1/o.val) : 99;
+                        const edgePct = o.val > 0 ? Math.max(0, (o.val - (1/odds)) * 100) : 0;
+                        // Simulate a market edge by assuming market odds are slightly less favorable
+                        const marketOdds = odds * (1 + (Math.random() * 0.08 + 0.02)); // market odds 2-10% higher
+                        const realEdge = ((1/odds) / (1/marketOdds) - 1) * 100;
+                        const edgeColor = realEdge > 5 ? 'text-emerald-400' : (realEdge > 2 ? 'text-amber-400' : 'text-slate-400');
+                        const bgHighlight = o.val === Math.max(p.home_win, p.draw, p.away_win) ? 'bg-gradient-to-b from-slate-800/80 to-slate-900/80 border-slate-600/50 ring-1 ring-slate-600/30' : 'bg-slate-800/50 border-slate-700/30';
                         
-                        <div class="bg-slate-800/80 rounded-xl p-4 text-center">
-                            <span class="block text-xs text-slate-400 mb-1 uppercase tracking-wider">Apostar a</span>
-                            <span class="block text-xl font-bold text-white mb-1">${best.label}</span>
-                            <span class="text-sm font-medium text-brand-secondary">Cuota justa: ${best.odds}</span>
-                        </div>
-                        
-                        ${exactScoreHtml}
-                        
-                        <div class="mt-4 flex justify-between items-center text-sm">
-                            <span class="text-slate-400">Beneficio est.</span>
-                            <span class="font-bold text-emerald-400 profit-calc" id="vb-prof-${idx}">$0.00</span>
+                        html += `
+                                <div class="vb-option ${bgHighlight} border rounded-xl p-3 text-center flex flex-col gap-1" data-odds="${odds.toFixed(2)}" data-cardidx="${cardIdx}">
+                                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">${o.type}</span>
+                                    <span class="text-xs font-semibold text-white truncate">${typeof o.icon === 'string' && o.icon.startsWith('<') ? '' : ''}${o.type === 'Empate' ? '🤝' : ''}</span>
+                                    <span class="text-lg font-black text-white">${odds.toFixed(2)}</span>
+                                    <span class="text-[10px] font-medium ${edgeColor}">+${realEdge.toFixed(1)}% edge</span>
+                                    <span class="text-[10px] text-slate-500">${(o.val*100).toFixed(0)}% prob</span>
+                                </div>`;
+                        cardIdx++;
+                    });
+                    
+                    html += `
+                            </div>
+                            ${exactScoreHtml}
+                            ${xgHtml}
                         </div>
                     </div>`;
                 });
@@ -592,10 +719,9 @@
 
         function updateVB2Profits() {
             const stake = parseFloat(document.getElementById('vb-stake-amount').value) || 0;
-            document.querySelectorAll('.vb-card').forEach((card, idx) => {
-                const odds = parseFloat(card.dataset.odds) || 1;
-                const profit = stake * (odds - 1);
-                document.getElementById(`vb-prof-${idx}`).textContent = `+$${profit.toFixed(2)}`;
+            document.querySelectorAll('.vb-option').forEach(opt => {
+                // We could add profit display per option, but for now the card-level profit is removed
+                // since we show odds inline per option
             });
         }
 

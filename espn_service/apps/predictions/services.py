@@ -935,6 +935,39 @@ class PredictionService:
                         "away_strength": pred.away_strength,
                         "confidence": pred.confidence,
                     }
+                    # Build special markets from expected goals
+                    import math
+                    def _pois(k, lam):
+                        if lam <= 0: return 1.0 if k == 0 else 0.0
+                        return (math.exp(-lam) * (lam**k)) / math.factorial(k)
+
+                    xg_h = pred.expected_goals_home
+                    xg_a = pred.expected_goals_away
+                    exact_scores = []
+                    for i in range(5):
+                        for j in range(5):
+                            prob = _pois(i, xg_h) * _pois(j, xg_a)
+                            if i == 0 and j == 0: prob *= max(0, 1 - xg_h * xg_a * 0.15)
+                            elif i == 1 and j == 0: prob *= (1 + xg_a * 0.15)
+                            elif i == 0 and j == 1: prob *= (1 + xg_h * 0.15)
+                            elif i == 1 and j == 1: prob *= max(0, 1 - 0.15)
+                            if prob > 0.01:
+                                exact_scores.append({"score": f"{i}-{j}", "probability": round(prob, 4)})
+                    exact_scores.sort(key=lambda x: x["probability"], reverse=True)
+
+                    spread = xg_h - xg_a
+                    corners_h = round(max(3.5, xg_h * 3.5), 1)
+                    corners_a = round(max(3.5, xg_a * 3.5), 1)
+
+                    d["special_markets"] = {
+                        "exact_scores": exact_scores[:5],
+                        "asian_handicap": {"line": round(spread * 2) / 2},
+                        "expected_corners": {
+                            "home": corners_h,
+                            "away": corners_a,
+                            "total": corners_h + corners_a,
+                        },
+                    }
             if m.status in ("IN_PLAY", "FINISHED") and (m.goals or m.bookings or m.substitutions):
                 d["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
             return d
