@@ -693,7 +693,11 @@ class PredictionService:
             "xG": {"home": pred.home_xg, "away": pred.away_xg},
         }
         # Build exact scores list
-        from apps.predictions.prediction_engine import poisson_prob as pp
+        import math
+        def pp(k, lam):
+            if lam <= 0: return 1.0 if k == 0 else 0.0
+            return (math.exp(-lam) * (lam**k)) / math.factorial(k)
+            
         expH = pred.expected_goals_home
         expA = pred.expected_goals_away
         exact_scores = []
@@ -706,7 +710,7 @@ class PredictionService:
         result["exact_scores"] = exact_scores[:10]
 
         # Build specials / markets
-        from apps.predictions.prediction_engine import poisson_prob as pp2
+        pp2 = pp
         result["markets"] = {
             "over_under": {
                 "over_2_5": round(sum(pp2(i, expH) * pp2(j, expA) for i in range(9) for j in range(9) if i + j > 2.5), 4),
