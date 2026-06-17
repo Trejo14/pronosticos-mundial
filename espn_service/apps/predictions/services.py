@@ -552,12 +552,15 @@ class PredictionService:
         if m.goals or m.bookings or m.substitutions:
             result["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
 
-        # Run prediction if teams are cached
-        home_info = teams_cache.get(sid_home) if hasattr(self, '_team_elo_cache') else None
-        away_info = teams_cache.get(sid_away) if hasattr(self, '_team_elo_cache') else None
-        if not home_info or not away_info:
-            home_info = TeamInfo(espn_id=sid_home, name=m.home_team_name, abbreviation=m.home_team_tla or m.home_team_name[:3].upper())
-            away_info = TeamInfo(espn_id=sid_away, name=m.away_team_name, abbreviation=m.away_team_tla or m.away_team_name[:3].upper())
+        # Run prediction
+        home_elo = self._team_elo_cache.get(sid_home, INITIAL_ELO)
+        away_elo = self._team_elo_cache.get(sid_away, INITIAL_ELO)
+        home_att = self._team_att_def_cache.get(sid_home, {}).get("attacking", 1.0)
+        home_def = self._team_att_def_cache.get(sid_home, {}).get("defensive", 1.0)
+        away_att = self._team_att_def_cache.get(sid_away, {}).get("attacking", 1.0)
+        away_def = self._team_att_def_cache.get(sid_away, {}).get("defensive", 1.0)
+        home_info = TeamInfo(espn_id=sid_home, name=m.home_team_name, abbreviation=m.home_team_tla or m.home_team_name[:3].upper(), elo=home_elo, attacking=home_att, defensive=home_def)
+        away_info = TeamInfo(espn_id=sid_away, name=m.away_team_name, abbreviation=m.away_team_tla or m.away_team_name[:3].upper(), elo=away_elo, attacking=away_att, defensive=away_def)
         pred = engine_predict_match(home_info, away_info, espn_win_probs=None)
         result["prediction"] = {
             "home_win": pred.home_win,

@@ -298,6 +298,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <script>
 const BASE = '/api/v1/predictions';
 let wcTimer = null;
+let todayTimer = null;
+let upcomingTimer = null;
+let vbTimer = null;
+let modalTimer = null;
 let wcData = null;
 
 // Navigation
@@ -307,12 +311,17 @@ document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 btn.classList.add('active');
 document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+stopAllTimers();
 if (btn.dataset.tab === 'worldcup') loadWorldCup();
 else if (btn.dataset.tab === 'today') loadToday();
 else if (btn.dataset.tab === 'upcoming') loadUpcoming();
 else if (btn.dataset.tab === 'valuebets') loadValueBets();
 });
 });
+function stopAllTimers() {
+[wcTimer, todayTimer, upcomingTimer, vbTimer].forEach(t => { if (t) { clearTimeout(t); } });
+wcTimer = null; todayTimer = null; upcomingTimer = null; vbTimer = null;
+}
 
 function showLoading(el) { el.innerHTML = '<div class="loading">Cargando...</div>'; }
 function showError(el, msg) { el.innerHTML = '<div class="error">' + msg + '</div>'; }
@@ -554,14 +563,20 @@ const today = getMexicoDateStr();
 const nowMX = getMexicoDate();
 document.getElementById('today-date').textContent = nowMX.toLocaleDateString('es-MX', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
 try {
-if (!wcData) wcData = await apiGet(BASE + '/worldcup/');
-const matches = flatMatches(wcData).filter(m => m.utc_date && getMexicoDateStr(new Date(m.utc_date)) === today);
+const data = wcData || await apiGet(BASE + '/worldcup/');
+if (!wcData) wcData = data;
+const matches = flatMatches(data).filter(m => m.utc_date && getMexicoDateStr(new Date(m.utc_date)) === today);
 if (!matches.length) {
 el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0">No hay partidos programados para hoy.</p>';
 return;
 }
 renderMatchesList(el, matches);
 } catch(e) { showError(el, 'Error al cargar: ' + e.message); }
+scheduleTodayRefresh();
+}
+function scheduleTodayRefresh() {
+if (todayTimer) clearTimeout(todayTimer);
+todayTimer = setTimeout(loadToday, 30000);
 }
 
 /* ─────── UPCOMING ─────── */
@@ -575,14 +590,20 @@ tomorrow.setDate(tomorrow.getDate() + 1);
 const tStr = getMexicoDateStr(tomorrow);
 document.getElementById('upcoming-date').textContent = tomorrow.toLocaleDateString('es-MX', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
 try {
-if (!wcData) wcData = await apiGet(BASE + '/worldcup/');
-const matches = flatMatches(wcData).filter(m => m.utc_date && getMexicoDateStr(new Date(m.utc_date)) === tStr);
+const data = wcData || await apiGet(BASE + '/worldcup/');
+if (!wcData) wcData = data;
+const matches = flatMatches(data).filter(m => m.utc_date && getMexicoDateStr(new Date(m.utc_date)) === tStr);
 if (!matches.length) {
 el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem 0">No hay partidos programados para mañana.</p>';
 return;
 }
 renderMatchesList(el, matches);
 } catch(e) { showError(el, 'Error al cargar: ' + e.message); }
+scheduleUpcomingRefresh();
+}
+function scheduleUpcomingRefresh() {
+if (upcomingTimer) clearTimeout(upcomingTimer);
+upcomingTimer = setTimeout(loadUpcoming, 30000);
 }
 
 /* ─────── RENDER MATCH LIST (Hoy / Próximos) ─────── */
@@ -736,12 +757,18 @@ const el = document.getElementById('vb-content');
 if (!el) return;
 showLoading(el);
 try {
-if (!wcData) wcData = await apiGet(BASE + '/worldcup/');
-const all = flatMatches(wcData);
-    const upcoming = all.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+const data = wcData || await apiGet(BASE + '/worldcup/');
+if (!wcData) wcData = data;
+const all = flatMatches(data);
+const upcoming = all.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
 upcoming.sort((a,b) => (a.utc_date||'').localeCompare(b.utc_date||''));
 renderValueBets(el, upcoming);
 } catch(e) { showError(el, e.message); }
+scheduleVBRefresh();
+}
+function scheduleVBRefresh() {
+if (vbTimer) clearTimeout(vbTimer);
+vbTimer = setTimeout(loadValueBets, 30000);
 }
 
 function renderValueBets(el, matches) {
@@ -877,9 +904,11 @@ if (el) el.textContent = '$' + profit.toFixed(2);
 }
 
 /* ─────── MATCH DETAIL MODAL ─────── */
+let lastModalMatchId = null;
 function openModal(matchId) {
 const modal = document.getElementById('match-modal');
 const body = document.getElementById('modal-body');
+lastModalMatchId = matchId;
 modal.classList.add('open');
 body.innerHTML = '<div class="loading">Cargando detalle...</div>';
 document.getElementById('modal-title').textContent = 'Detalle del Partido';
@@ -888,11 +917,29 @@ fetch(BASE + '/match-detail/' + matchId + '/')
 .then(data => {
 if (data.error) { body.innerHTML = '<div class="error">'+data.error+'</div>'; return; }
 renderModalContent(data);
+if (data.status === 'IN_PLAY') scheduleModalRefresh(matchId);
 })
 .catch(e => { body.innerHTML = '<div class="error">Error al cargar: '+e.message+'</div>'; });
 }
 function closeModal() {
 document.getElementById('match-modal').classList.remove('open');
+if (modalTimer) { clearTimeout(modalTimer); modalTimer = null; }
+lastModalMatchId = null;
+}
+function scheduleModalRefresh(matchId) {
+if (modalTimer) clearTimeout(modalTimer);
+modalTimer = setTimeout(() => {
+if (lastModalMatchId === matchId) {
+fetch(BASE + '/match-detail/' + matchId + '/')
+.then(r => r.json())
+.then(data => {
+if (data.error || data.status !== 'IN_PLAY') { return; }
+renderModalContent(data);
+scheduleModalRefresh(matchId);
+})
+.catch(() => {});
+}
+}, 10000);
 }
 function renderModalContent(d) {
 const isLive = d.status === 'IN_PLAY';
