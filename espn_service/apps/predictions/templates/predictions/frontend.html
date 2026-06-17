@@ -219,6 +219,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .special-item .val{font-size:.9375rem;font-weight:600}
 .clickable{cursor:pointer;transition:all .15s}
 .clickable:hover{background:var(--card-hover);border-color:var(--primary)}
+/* Stats comparison */
+.stats-comparison{display:flex;flex-direction:column;gap:.5rem}
+.stat-row{display:grid;grid-template-columns:40px 1fr 60px 1fr 40px;align-items:center;gap:.375rem}
+.stat-val{font-size:.8125rem;font-weight:700;text-align:center}
+.stat-val.home{color:var(--primary);text-align:right}
+.stat-val.away{color:var(--info);text-align:left}
+.stat-label{font-size:.75rem;color:var(--text-muted);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-bar-wrap{height:6px}
+.stat-bar{height:100%;background:var(--bg);border-radius:3px;overflow:hidden}
+.stat-fill{height:100%;border-radius:3px;transition:width .3s}
+.stat-fill.home{background:var(--primary)}
+.stat-fill.away{background:var(--info)}
 @media(max-width:768px){.main{padding:1rem}.group-grid{grid-template-columns:1fr}.knockout-grid{grid-template-columns:1fr}.header{flex-direction:column;text-align:center;padding:1rem}.nav{padding:.5rem 1rem;overflow-x:auto}.match-card .mc-header .mc-teams{flex-direction:column;text-align:center}}
 </style>
 </head>
@@ -1085,11 +1097,60 @@ html += '<div class="special-item"><div class="ico">📐</div><div class="lbl">T
 html += '<div class="special-item"><div class="ico">💵</div><div class="lbl">Mercado</div><div class="val">Apuestas en vivo</div></div>';
 html += '</div></div>';
 
-// Live stats placeholder
-if (isLive) {
-html += '<div class="detail-card" style="margin-top:1rem"><h4>📊 Estadísticas en Vivo</h4>';
-html += '<p style="font-size:.8125rem;color:var(--text-muted);text-align:center;padding:.5rem">Los datos detallados de estadísticas (posesión, tiros, córners) se actualizan con la API de estadísticas en vivo. Próximamente más datos.</p>';
-html += '</div>';
+// Live stats
+if (d.live_stats) {
+const ls = d.live_stats;
+const hls = ls.home || {};
+const als = ls.away || {};
+const statRows = [
+  {label:'Tiros', key:'shots'},
+  {label:'Tiros a puerta', key:'shots_on_target'},
+  {label:'Tiros fuera', key:'shots_off_target'},
+  {label:'Tiros bloqueados', key:'blocked_shots'},
+  {label:'Faltas', key:'fouls'},
+  {label:'Fuera de juego', key:'offsides'},
+  {label:'Saques de esquina', key:'corner_kicks'},
+  {label:'Paradas', key:'saves'},
+  {label:'Entradas', key:'tackles'},
+  {label:'Despejes', key:'clearances'},
+  {label:'Intercepciones', key:'interceptions'},
+  {label:'Balones recuperados', key:'recoveries'},
+  {label:'xG', key:'xG', isFloat:true},
+  {label:'Tarjetas amarillas', key:'yellow_cards'},
+  {label:'Tarjetas rojas', key:'red_cards'},
+];
+html += '<div class="detail-card" style="margin-top:1rem"><h4>📊 Estadísticas en Vivo'+(ls.game_time?' <span style="font-size:.75rem;color:var(--text-muted);font-weight:400">'+ls.game_time+'</span>':'')+'</h4>';
+html += '<div class="stats-comparison">';
+for (const sr of statRows) {
+  const hv = hls[sr.key];
+  const av = als[sr.key];
+  if (hv == null && av == null) continue;
+  const hVal = sr.isFloat ? hv.toFixed(2) : hv;
+  const aVal = sr.isFloat ? av.toFixed(2) : av;
+  const total = hv + av;
+  const hpct = total > 0 ? (hv / total * 100) : 50;
+  html += '<div class="stat-row">';
+  html += '<span class="stat-val home">'+hVal+'</span>';
+  html += '<div class="stat-bar-wrap"><div class="stat-bar"><div class="stat-fill home" style="width:'+hpct.toFixed(0)+'%"></div></div></div>';
+  html += '<span class="stat-label">'+sr.label+'</span>';
+  html += '<div class="stat-bar-wrap"><div class="stat-bar"><div class="stat-fill away" style="width:'+(100-hpct).toFixed(0)+'%"></div></div></div>';
+  html += '<span class="stat-val away">'+aVal+'</span>';
+  html += '</div>';
+}
+html += '</div></div>';
+
+// xG chart
+if (d.xg_chart && d.xg_chart.length) {
+const maxXG = Math.max(...d.xg_chart.map(c=>c.xg), 0.5);
+html += '<div class="detail-card" style="margin-top:.75rem"><h4>🎯 Mapa de Tiros (xG)</h4>';
+html += '<div style="display:flex;align-items:flex-end;gap:2px;height:100px;background:var(--bg);border-radius:var(--radius-sm);padding:.25rem;overflow-x:auto">';
+for (const c of d.xg_chart) {
+  const barH = Math.max(c.xg / maxXG * 80, 6);
+  const col = c.is_goal ? 'var(--success)' : (c.outcome==='Defendido'?'var(--warning)':'var(--text-muted)');
+  html += '<div style="min-width:6px;height:'+barH.toFixed(0)+'px;background:'+col+';border-radius:2px 2px 0 0;flex-shrink:0;opacity:.8" title="'+c.time+' · xG '+c.xg.toFixed(2)+' · '+c.body_part+(c.is_goal?' ⚽':'')+'"></div>';
+}
+html += '</div></div>';
+}
 }
 
 document.getElementById('modal-title').textContent = hn+' vs '+an;

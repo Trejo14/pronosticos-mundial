@@ -610,7 +610,37 @@ class PredictionService:
             if p > 0.01:
                 result["markets"]["exact_goals"][str(total_g)] = round(p, 4)
 
-        # Player specials (simulated based on expected goals)
+        # Enrich with 365Scores live stats
+        try:
+            from clients.scores365_client import Scores365Client
+            s365 = Scores365Client()
+            s365_game_id = s365.find_game_by_teams(m.home_team_name, m.away_team_name)
+            if s365_game_id:
+                stats = s365.get_game_stats(s365_game_id)
+                if stats:
+                    result["live_stats"] = {
+                        "home": stats.home_stats(),
+                        "away": stats.away_stats(),
+                        "game_time": stats.game_time_display,
+                        "game_minute": int(stats.game_time) if stats.game_time >= 0 else None,
+                    }
+                    # Chart events (xG shots)
+                    xg_data = []
+                    for ce in stats.chart_events:
+                        xg_data.append({
+                            "xg": round(ce.xg, 2),
+                            "xgot": round(ce.xgot, 2),
+                            "body_part": ce.body_part,
+                            "time": ce.time,
+                            "team": "home" if ce.competitor_num == 1 else "away",
+                            "outcome": ce.outcome_name,
+                            "is_goal": ce.outcome_id == 0,
+                        })
+                    if xg_data:
+                        result["xg_chart"] = xg_data
+        except Exception as exc:
+            logger.debug("scores365_enrich_failed", error=str(exc))
+
         result["specials"] = {
             "anytime_goalscorer": f"Jugador de {home_info.name if expH > expA else away_info.name} (mayor probabilidad de gol)",
             "player_cards": "Depende de las cuotas en vivo",
