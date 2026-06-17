@@ -56,6 +56,8 @@ class TeamInfo:
     form_pts: float = 0.5
     recent_gf: float = 1.0
     recent_ga: float = 1.0
+    squad_value: float = 50.0
+    xg_per_match: float | None = None
 
 
 # ──────────────────────── distribuciones ────────────────────────
@@ -185,6 +187,14 @@ def calculate_expected_goals(
     expected_home = league_avg_goals * home_attack * away_defense * (1 + home_strength.home_advantage)
     expected_away = league_avg_goals * away_attack * home_defense
 
+    # Ajuste por valor de plantilla: equipos con plantilla más cara
+    # tienden a rendir mejor de lo que sus stats recientes indican
+    sv_h = home_strength.squad_value or 50.0
+    sv_a = away_strength.squad_value or 50.0
+    sv_ratio = (sv_h / max(sv_a, 1)) ** 0.08  # factor suave (~1.12 para 4x diferencia)
+    expected_home *= sv_ratio
+    expected_away /= sv_ratio
+
     # Ajuste mínimo
     expected_home = max(expected_home, 0.05)
     expected_away = max(expected_away, 0.05)
@@ -204,27 +214,30 @@ def blend_probabilities(
     market_weight: float = 0.35,
     dc_weight: float = 0.25,
     form_weight: float = 0.15,
+    calibrated_weights: dict[str, float] | None = None,
 ) -> tuple[float, float, float]:
     """Blend adaptativo de múltiples modelos.
 
     Cuando hay cuotas de mercado, tienen más peso (los mercados son eficientes).
     Cuando no hay, pesa más el modelo Dixon-Coles + Poisson + Elo.
+    Si calibrated_weights se proporciona, se usan en lugar de los defaults.
     """
+    if calibrated_weights:
+        dc_weight = calibrated_weights.get("dc", dc_weight)
+        elo_weight = calibrated_weights.get("elo", elo_weight)
+        form_weight = calibrated_weights.get("form", form_weight)
+        market_weight = calibrated_weights.get("market", market_weight)
+        poisson_weight = calibrated_weights.get("poisson", dc_weight)
+        # poisson y dc comparten peso si no hay separado
+        dc_weight = poisson_weight if "poisson" in calibrated_weights and "dc" not in calibrated_weights else dc_weight
+
     weights = {}
 
-    # Modelo base: Poisson + Dixon-Coles
     weights["dc"] = dc_weight
-
-    # Elo
     weights["elo"] = elo_weight
-
-    # Forma reciente
     weights["form"] = form_weight if form_probs else 0.0
-
-    # Mercado: si hay cuotas, tienen el peso más alto
     weights["market"] = market_weight if market_probs else 0.0
 
-    # Normalizar
     total_w = sum(weights.values())
     if total_w <= 0:
         return remove_vig(*poisson_probs)
@@ -314,6 +327,18 @@ def calculate_confidence(
 
 # ──────────────────────── predict_match ────────────────────────
 
+def _load_calibrated_weights() -> dict[str, float] | None:
+    """Carga pesos calibrados desde model_calibration si hay suficientes datos."""
+    try:
+        from apps.predictions.model_calibration import get_calibration_summary
+        cal = get_calibration_summary()
+        if cal.get("count", 0) >= 10:
+            return dict(cal["blend_weights"])
+    except Exception:
+        pass
+    return None
+
+
 def predict_match(
     home: TeamInfo,
     away: TeamInfo,
@@ -329,6 +354,8 @@ def predict_match(
         home_advantage=0.06,
         form_pts=home.form_pts,
         recent_gf=home.recent_gf, recent_ga=home.recent_ga,
+        squad_value=home.squad_value,
+        xg_per_match=home.xg_per_match,
     )
     away_strength = TeamStrength(
         name=away.name, espn_id=away.espn_id,
@@ -336,6 +363,8 @@ def predict_match(
         home_advantage=0.0,
         form_pts=away.form_pts,
         recent_gf=away.recent_gf, recent_ga=away.recent_ga,
+        squad_value=away.squad_value,
+        xg_per_match=away.xg_per_match,
     )
 
     # Expected goals desde forma reciente y ataque/defensa
@@ -362,6 +391,9 @@ def predict_match(
     if espn_win_probs:
         espn_probs = remove_vig(*espn_win_probs)
 
+    # Pesos calibrados del blending
+    cal_weights = _load_calibrated_weights()
+
     # Blending
     market_available = market_probs is not None
     final_home, final_draw, final_away = blend_probabilities(
@@ -369,6 +401,7 @@ def predict_match(
         market_probs=market_probs,
         form_probs=form_probs,
         market_weight=0.35 if market_available else 0.0,
+        calibrated_weights=cal_weights,
     )
 
     model_probs_list = [poisson_probs, dc_probs, elo_probs, form_probs]

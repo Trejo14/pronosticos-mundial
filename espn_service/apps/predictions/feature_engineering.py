@@ -28,6 +28,8 @@ INITIAL_ELO = 1500.0
 ELO_K_BASE = 32.0
 HOME_ADVANTAGE_BASE = 0.06  # ~0.5 goals advantage
 ELO_CACHE_FILENAME = "elo_cache.json"
+XG_CACHE_FILENAME = "xg_cache.json"
+CALIBRATION_FILENAME = "calibration.json"
 FORM_WINDOW = 5              # partidos para forma reciente
 GOAL_WINDOW = 10             # partidos para media de goles
 DECAY_DAYS = 365 * 2         # 2 años para decaer Elo al inicial
@@ -35,6 +37,14 @@ DECAY_RATE = 0.5             # qué fracción del camino de regreso
 
 # Pesos exponenciales para forma reciente (más reciente = más peso)
 _FORM_WEIGHTS = [0.35, 0.25, 0.20, 0.12, 0.08]
+
+# Valor de plantilla aproximado por ranking FIFA (millones EUR)
+# Basado en correlación histórica ranking ↔ valor de mercado
+_SQUAD_VALUE_BY_RANK = {
+    (1, 5): 850, (6, 10): 650, (11, 15): 500, (16, 20): 380,
+    (21, 30): 250, (31, 40): 160, (41, 50): 100, (51, 70): 55,
+    (71, 100): 25, (101, 150): 10, (151, 211): 3,
+}
 
 
 # ──────────────────────── dataclasses ────────────────────────
@@ -53,6 +63,7 @@ class TeamStrength:
     xg_per_match: float | None = None
     clean_sheet_rate: float = 0.0
     btts_rate: float = 0.0
+    squad_value: float = 50.0     # valor de plantilla en millones EUR
 
 
 # ──────────────────────── Elo persistente ────────────────────────
@@ -115,6 +126,68 @@ def save_elo(team_id: str, new_elo: float, matches_played: int | None = None) ->
     old["matches_played"] = (old.get("matches_played", 0) + 1) if matches_played is None else matches_played
     cache[team_id] = old
     _save_elo_cache(cache)
+
+
+# ──────────────────────── xG cache ────────────────────────
+
+def _xg_cache_path() -> Path:
+    return Path(settings.BASE_DIR) / "data" / XG_CACHE_FILENAME
+
+
+def _load_xg_cache() -> dict[str, dict]:
+    path = _xg_cache_path()
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("xg_cache_read_failed", error=str(exc))
+    return {}
+
+
+def _save_xg_cache(cache: dict[str, dict]) -> None:
+    path = _xg_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logger.warning("xg_cache_write_failed", error=str(exc))
+
+
+def save_team_xg(team_id: str, xg_for: float, xg_against: float) -> None:
+    """Guarda xG real de un partido para un equipo (media móvil)."""
+    cache = _load_xg_cache()
+    entry = cache.get(team_id, {"xg_for": [], "xg_against": [], "count": 0})
+    entry["xg_for"].append(xg_for)
+    entry["xg_against"].append(xg_against)
+    entry["count"] = entry.get("count", 0) + 1
+    # Mantener últimos 20
+    entry["xg_for"] = entry["xg_for"][-20:]
+    entry["xg_against"] = entry["xg_against"][-20:]
+    cache[team_id] = entry
+    _save_xg_cache(cache)
+
+
+def get_team_xg(team_id: str) -> tuple[float | None, float | None]:
+    """Devuelve (xg_for_avg, xg_against_avg) para un equipo."""
+    cache = _load_xg_cache()
+    entry = cache.get(team_id)
+    if not entry or not entry.get("xg_for"):
+        return None, None
+    avg_for = sum(entry["xg_for"]) / len(entry["xg_for"])
+    avg_against = sum(entry["xg_against"]) / len(entry["xg_against"])
+    return round(avg_for, 3), round(avg_against, 3)
+
+
+# ──────────────────────── squad value ────────────────────────
+
+def estimate_squad_value(fifa_rank: int | None) -> float:
+    """Estima el valor de plantilla en millones EUR desde el ranking FIFA."""
+    if fifa_rank is None or fifa_rank <= 0:
+        return 50.0
+    for (lo, hi), val in _SQUAD_VALUE_BY_RANK.items():
+        if lo <= fifa_rank <= hi:
+            return val
+    return 10.0
 
 
 # ──────────────────────── funciones base ────────────────────────
@@ -295,8 +368,9 @@ def build_team_strength(
     xg_avg: float | None = None,
     home: bool = False,
     league_avg_goals: float = 2.5,
+    fifa_rank: int | None = None,
 ) -> TeamStrength:
-    """Construye TeamStrength combinando Elo, forma reciente y xG."""
+    """Construye TeamStrength combinando Elo, forma reciente, xG real y valor de plantilla."""
     att, deff = 1.0, 1.0
     form_pts = 0.5
     recent_gf, recent_ga = 1.0, 1.0
@@ -312,6 +386,14 @@ def build_team_strength(
         att = calculate_attacking_strength(recent_gf, league_avg_goals)
         deff = calculate_defensive_strength(recent_ga, league_avg_goals)
 
+    # Ajuste con xG real histórico de 365Scores
+    xg_for, xg_against = get_team_xg(team_id)
+    if xg_for is not None and xg_for > 0:
+        xg_att = xg_for / (league_avg_goals / 2)
+        xg_def = xg_against / (league_avg_goals / 2)
+        att = (att * 0.5) + (xg_att * 0.5)
+        deff = (deff * 0.5) + (xg_def * 0.5)
+
     if xg_avg is not None and xg_avg > 0:
         xg_att = xg_avg / (league_avg_goals / 2)
         att = (att + xg_att) / 2
@@ -319,6 +401,8 @@ def build_team_strength(
     # Suavizado hacia 1.0 para evitar extremos
     att = 0.3 + 0.7 * att
     deff = 0.3 + 0.7 * deff
+
+    squad_val = estimate_squad_value(fifa_rank)
 
     return TeamStrength(
         name=team_name,
@@ -333,4 +417,5 @@ def build_team_strength(
         xg_per_match=round(xg_avg, 2) if xg_avg else None,
         clean_sheet_rate=round(cs_rate, 3),
         btts_rate=round(btts_rate, 3),
+        squad_value=squad_val,
     )

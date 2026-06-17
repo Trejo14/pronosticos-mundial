@@ -282,6 +282,19 @@ class WorldCupDashboardView(views.APIView):
         return Response(result)
 
 
+class CalibrationView(views.APIView):
+    """Model calibration status and weight optimization."""
+
+    def get(self, request: Request) -> Response:
+        from apps.predictions.model_calibration import get_calibration_summary
+        return Response(get_calibration_summary())
+
+    def post(self, request: Request) -> Response:
+        from apps.predictions.model_calibration import optimize_blend_weights
+        new_weights = optimize_blend_weights()
+        return Response({"blend_weights": new_weights, "status": "optimized"})
+
+
 def frontend(request):
     """Render the predictions frontend SPA."""
     return render(request, "predictions/frontend.html")

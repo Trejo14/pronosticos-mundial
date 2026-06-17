@@ -2,6 +2,7 @@
 from django.urls import path
 
 from apps.predictions.views import (
+    CalibrationView,
     MatchDetailView,
     MatchPredictionView,
     TournamentPredictionView,
@@ -20,4 +21,5 @@ urlpatterns = [
     path("upcoming/", UpcomingMatchesView.as_view(), name="upcoming-matches"),
     path("value-bets/", ValueBetsView.as_view(), name="value-bets"),
     path("worldcup/", WorldCupDashboardView.as_view(), name="worldcup-dashboard"),
+    path("calibration/", CalibrationView.as_view(), name="calibration"),
 ]

@@ -256,15 +256,22 @@ class PredictionService:
         home_recent_ga = sum(r.get("ga", 0) for r in home_results) / max(len(home_results), 1)
         away_recent_ga = sum(r.get("ga", 0) for r in away_results) / max(len(away_results), 1)
 
+        from apps.predictions.feature_engineering import get_team_xg, estimate_squad_value
+        hxgf, hxga = get_team_xg(home_id)
+        axgf, axga = get_team_xg(away_id)
         home_info = TeamInfo(
             espn_id=home_id, name=home_name, abbreviation=home_team_data.get("abbreviation", ""),
             elo=home_elo, attacking=home_att, defensive=home_def,
             form_pts=home_form_pts, recent_gf=home_recent_gf, recent_ga=home_recent_ga,
+            squad_value=estimate_squad_value(None),
+            xg_per_match=hxgf,
         )
         away_info = TeamInfo(
             espn_id=away_id, name=away_name, abbreviation=away_team_data.get("abbreviation", ""),
             elo=away_elo, attacking=away_att, defensive=away_def,
             form_pts=away_form_pts, recent_gf=away_recent_gf, recent_ga=away_recent_ga,
+            squad_value=estimate_squad_value(None),
+            xg_per_match=axgf,
         )
 
         espn_probs = extract_espn_win_probs(event_data)
@@ -600,17 +607,24 @@ class PredictionService:
         home_rga = sum(r.get("ga", 0) for r in home_results) / max(len(home_results), 1)
         away_rga = sum(r.get("ga", 0) for r in away_results) / max(len(away_results), 1)
 
+        from apps.predictions.feature_engineering import get_team_xg, estimate_squad_value
+        hxgf, _ = get_team_xg(sid_home)
+        axgf, _ = get_team_xg(sid_away)
         home_info = TeamInfo(
             espn_id=sid_home, name=m.home_team_name,
             abbreviation=m.home_team_tla or m.home_team_name[:3].upper(),
             elo=home_elo, attacking=home_att, defensive=home_def,
             form_pts=home_form_pts, recent_gf=home_rgf, recent_ga=home_rga,
+            squad_value=estimate_squad_value(None),
+            xg_per_match=hxgf,
         )
         away_info = TeamInfo(
             espn_id=sid_away, name=m.away_team_name,
             abbreviation=m.away_team_tla or m.away_team_name[:3].upper(),
             elo=away_elo, attacking=away_att, defensive=away_def,
             form_pts=away_form_pts, recent_gf=away_rgf, recent_ga=away_rga,
+            squad_value=estimate_squad_value(None),
+            xg_per_match=axgf,
         )
         pred = predict_match(home_info, away_info, espn_win_probs=None)
         result["prediction"] = {
@@ -715,6 +729,36 @@ class PredictionService:
             except Exception as exc:
                 logger.debug("elo_update_failed", error=str(exc))
 
+            # Save xG data from 365Scores to cache
+            try:
+                xg_chart = result.get("xg_chart", [])
+                if xg_chart:
+                    home_xg_total = sum(ev["xg"] for ev in xg_chart if ev["team"] == "home")
+                    away_xg_total = sum(ev["xg"] for ev in xg_chart if ev["team"] == "away")
+                    if home_xg_total > 0 or away_xg_total > 0:
+                        from apps.predictions.feature_engineering import save_team_xg
+                        save_team_xg(sid_home, home_xg_total, away_xg_total)
+                        save_team_xg(sid_away, away_xg_total, home_xg_total)
+            except Exception as exc:
+                logger.debug("xg_save_failed", error=str(exc))
+
+            # Record prediction results for calibration
+            try:
+                from apps.predictions.model_calibration import record_prediction as cal_record
+                if "prediction" in result:
+                    hp = result["prediction"].get("home_win", 0.33)
+                    dp = result["prediction"].get("draw", 0.33)
+                    ap = result["prediction"].get("away_win", 0.33)
+                    cal_record(
+                        match_id=str(m.id),
+                        home_team=m.home_team_name,
+                        away_team=m.away_team_name,
+                        home_proba=hp, draw_proba=dp, away_proba=ap,
+                        actual_home=m.score_home, actual_away=m.score_away,
+                    )
+            except Exception as exc:
+                logger.debug("calibration_record_failed", error=str(exc))
+
         result["specials"] = {
             "anytime_goalscorer": f"Jugador de {home_info.name if expH > expA else away_info.name} (mayor probabilidad de gol)",
             "player_cards": "Depende de las cuotas en vivo",
@@ -779,6 +823,8 @@ class PredictionService:
                     continue
                 sid = str(tid)
                 if sid not in teams_cache:
+                    from apps.predictions.feature_engineering import get_team_xg, estimate_squad_value
+                    xgf, _ = get_team_xg(sid)
                     teams_cache[sid] = TeamInfo(
                         espn_id=sid,
                         name=tname,
@@ -786,6 +832,8 @@ class PredictionService:
                         elo=self._team_elo_cache.get(sid, INITIAL_ELO),
                         attacking=self._team_att_def_cache.get(sid, {}).get("attacking", 1.0),
                         defensive=self._team_att_def_cache.get(sid, {}).get("defensive", 1.0),
+                        squad_value=estimate_squad_value(None),
+                        xg_per_match=xgf,
                     )
 
         def match_to_dict(m) -> dict:

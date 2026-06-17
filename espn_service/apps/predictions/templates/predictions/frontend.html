@@ -245,6 +245,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <button data-tab="today">📅 Hoy</button>
 <button data-tab="upcoming">📅 Próximos</button>
 <button data-tab="valuebets">💰 Value Bets</button>
+<button data-tab="calibration">📊 Calibración</button>
 </nav>
 
 <main class="main">
@@ -292,6 +293,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 </div>
 
+<!-- === CALIBRATION DASHBOARD === -->
+<div class="tab" id="tab-calibration">
+<div class="card">
+<div class="refresh-bar">
+<h2>📊 Calibración del Modelo</h2>
+<button class="btn btn-sm" onclick="optimizeWeights()">Re-optimizar Pesos</button>
+</div>
+<div id="calibration-content"></div>
+</div>
+</div>
+
 <!-- === MATCH DETAIL MODAL === -->
 <div class="modal-overlay" id="match-modal" onclick="if(event.target===this)closeModal()">
 <div class="modal-content">
@@ -327,6 +339,7 @@ stopAllTimers();
 if (btn.dataset.tab === 'worldcup') loadWorldCup();
 else if (btn.dataset.tab === 'today') loadToday();
 else if (btn.dataset.tab === 'upcoming') loadUpcoming();
+else if (btn.dataset.tab === 'calibration') loadCalibration();
 else if (btn.dataset.tab === 'valuebets') loadValueBets();
 });
 });
@@ -1168,6 +1181,56 @@ html += '</div></div>';
 
 document.getElementById('modal-title').textContent = hn+' vs '+an;
 document.getElementById('modal-body').innerHTML = html;
+}
+// ─────────────── Calibration ───────────────
+async function loadCalibration() {
+const el = document.getElementById('calibration-content');
+showLoading(el);
+try {
+const data = await apiGet(BASE+'/calibration/');
+renderCalibration(el, data);
+} catch(e) { showError(el, e.message); }
+}
+async function optimizeWeights() {
+const el = document.getElementById('calibration-content');
+showLoading(el);
+try {
+const res = await fetch(BASE+'/calibration/', {method:'POST'});
+const data = await res.json();
+renderCalibration(el, {...data, _optimized: true});
+} catch(e) { showError(el, e.message); }
+}
+function renderCalibration(el, d) {
+if (d._optimized) d = {...d, ...d}; // passthrough
+const c = d.count || 0;
+const acc = (d.accuracy*100).toFixed(1);
+const exact = (d.exact_accuracy*100).toFixed(1);
+const brier = d.brier_avg?.toFixed(4)||'—';
+const ll = d.log_loss_avg?.toFixed(4)||'—';
+const bss = (d.brier_skill_score*100).toFixed(1);
+const w = d.blend_weights || {};
+
+const weightKeys = {poisson:'Poisson', elo:'Elo', market:'Mercado', form:'Forma', dc:'Dixon-Coles'};
+let wHtml = Object.entries(weightKeys).map(([k,l]) =>
+`<div class="metric"><span class="lbl">${l}</span><span class="val">${((w[k]||0)*100).toFixed(0)}%</span></div>`
+).join('');
+
+const barW = d._optimized ? '' : '<div class="info" style="margin-top:.5rem;font-size:.75rem">POST /calibration/ para re-optimizar</div>';
+
+el.innerHTML = `
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem">
+<div class="metric"><span class="lbl">Partidos</span><span class="val">${c}</span></div>
+<div class="metric ${acc>=50?'text-success':acc>=35?'text-warning':'text-danger'}"><span class="lbl">Precisión</span><span class="val">${acc}%</span></div>
+<div class="metric"><span class="lbl">Exactitud</span><span class="val">${exact}%</span></div>
+<div class="metric ${brier<=0.21?'text-success':brier<=0.30?'text-warning':'text-danger'}"><span class="lbl">Brier</span><span class="val">${brier}</span></div>
+<div class="metric"><span class="lbl">Log-Loss</span><span class="val">${ll}</span></div>
+<div class="metric ${bss>=10?'text-success':bss>=0?'text-warning':'text-danger'}"><span class="lbl">Brier Skill Score</span><span class="val">${bss}%</span></div>
+</div>
+<div class="card" style="margin-bottom:0">
+<h4>Pesos del Blending</h4>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-top:.75rem">${wHtml}</div>
+${barW}
+</div>`;
 }
 // Auto-load on page open
 loadWorldCup();
