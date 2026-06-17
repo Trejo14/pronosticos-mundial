@@ -826,6 +826,7 @@ class PredictionService:
     def predict_worldcup(
         self,
         football_data_client=None,
+        competition_id: int = 2000,
     ) -> dict[str, Any]:
         from clients.football_data_client import FootballDataClient
         from apps.predictions.prediction_engine import predict_match as engine_predict_match
@@ -835,8 +836,8 @@ class PredictionService:
             return {"error": "FOOTBALL_DATA_API_KEY not configured"}
 
         try:
-            matches = fb_client.get_competition_matches()
-            standings_raw = fb_client.get_competition_standings()
+            matches = fb_client.get_competition_matches(competition_id)
+            standings_raw = fb_client.get_competition_standings(competition_id)
         except Exception as e:
             logger.error("football_data_fetch_failed", error=str(e))
             return {"error": f"Failed to fetch World Cup data: {e}"}
@@ -1030,6 +1031,31 @@ class PredictionService:
                         },
                         "clean_sheet": {"home": cs_home, "away": cs_away},
                     }
+
+                    # --- AI Reasoning Generator ---
+                    reasoning_parts = []
+                    h_name = m.home_team_name or "Local"
+                    a_name = m.away_team_name or "Visita"
+                    if pred.home_win > 0.5:
+                        reasoning_parts.append(f"El modelo confía en {h_name} ({(pred.home_win*100):.0f}%) debido a un xG esperado superior ({xg_h:.1f} vs {xg_a:.1f}).")
+                    elif pred.away_win > 0.5:
+                        reasoning_parts.append(f"El modelo favorece a {a_name} ({(pred.away_win*100):.0f}%) apoyado por su ventaja en xG ({xg_a:.1f} vs {xg_h:.1f}).")
+                    elif pred.home_win > pred.away_win:
+                        reasoning_parts.append(f"Se proyecta una leve ventaja para {h_name}, pero el alto riesgo de empate ({(pred.draw*100):.0f}%) sugiere cautela.")
+                    else:
+                        reasoning_parts.append(f"Partido muy parejo con ligera inclinación hacia {a_name}, el empate es altamente probable ({(pred.draw*100):.0f}%).")
+
+                    if over_under["over_2_5"] > 0.6:
+                        reasoning_parts.append("Se espera un encuentro abierto con alta probabilidad (O2.5).")
+                    elif over_under["under_2_5"] > 0.6:
+                        reasoning_parts.append("Se anticipa un partido cerrado y defensivo (U2.5 fuerte).")
+
+                    if cs_home > 0.4:
+                        reasoning_parts.append(f"Existe una probabilidad considerable ({(cs_home*100):.0f}%) de que {h_name} mantenga su arco en cero.")
+                    elif cs_away > 0.4:
+                        reasoning_parts.append(f"Existe una probabilidad considerable ({(cs_away*100):.0f}%) de que {a_name} mantenga su arco en cero.")
+
+                    d["prediction"]["ai_reasoning"] = " ".join(reasoning_parts)
 
             # Live stats enrichment for IN_PLAY matches
             if m.status == "IN_PLAY":

@@ -263,10 +263,24 @@ class WorldCupDashboardView(views.APIView):
     """Full World Cup 2026 dashboard: all matches by group + standings + predictions."""
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name="league", description="League Code (e.g. WC, PL, PD)", required=False, type=str),
+        ],
         responses={200: dict},
     )
     def get(self, request: Request) -> Response:
         from clients.football_data_client import FootballDataClient
+
+        league = request.query_params.get("league", "WC").upper()
+        league_map = {
+            "WC": 2000,
+            "PL": 2021, # Premier League
+            "PD": 2014, # La Liga
+            "CL": 2001, # Champions League
+            "SA": 2019, # Serie A
+            "BL1": 2002, # Bundesliga
+        }
+        comp_id = league_map.get(league, 2000)
 
         fb_client = FootballDataClient()
         from clients.espn_client import ESPNClient
@@ -276,7 +290,7 @@ class WorldCupDashboardView(views.APIView):
         stats_client = StatsAPIClient()
         service = PredictionService(espn_client, stats_client)
 
-        result = service.predict_worldcup(football_data_client=fb_client)
+        result = service.predict_worldcup(football_data_client=fb_client, competition_id=comp_id)
         if "error" in result:
             return Response(result, status=status.HTTP_502_BAD_GATEWAY)
         return Response(result)
