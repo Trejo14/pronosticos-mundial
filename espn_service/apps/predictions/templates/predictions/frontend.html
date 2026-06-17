@@ -3,155 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TIPS THE BIRD - Premium AI Dashboard</title>
+    <title>TIPS THE BIRD - Premium AI Predictions</title>
+    <meta name="description" content="Predicciones deportivas con IA avanzada para el Mundial 2026. Análisis multi-modelo, mercados premium y estadísticas en tiempo real.">
     
-    <!-- Google Fonts: Outfit for a modern, sleek look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
-                    },
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
                     colors: {
-                        dark: {
-                            DEFAULT: '#0B0F19',
-                            card: 'rgba(17, 24, 39, 0.7)',
-                            border: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        brand: {
-                            primary: '#3B82F6', // Blue
-                            secondary: '#8B5CF6', // Purple
-                            accent: '#F43F5E', // Rose
-                        }
+                        dark: { DEFAULT: '#080c14', card: 'rgba(14, 20, 33, 0.75)', border: 'rgba(255,255,255,0.08)' },
+                        brand: { primary: '#6366F1', secondary: '#8B5CF6', accent: '#F43F5E', success: '#10B981', warning: '#F59E0B' }
                     },
                     animation: {
-                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
                         'float': 'float 3s ease-in-out infinite',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
                     },
                     keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-5px)' },
-                        }
+                        float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-5px)' } },
+                        slideUp: { from: { opacity: '0', transform: 'translateY(20px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+                        glow: { from: { boxShadow: '0 0 5px rgba(99,102,241,0.3)' }, to: { boxShadow: '0 0 20px rgba(99,102,241,0.6)' } },
                     }
                 }
             }
         }
     </script>
-
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        /* Glassmorphism utilities */
-        .glass {
-            background: var(--tw-colors-dark-card);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--tw-colors-dark-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-        
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .text-gradient {
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-image: linear-gradient(to right, #3B82F6, #8B5CF6);
-        }
-        
-        .text-gradient-accent {
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-image: linear-gradient(to right, #F43F5E, #F97316);
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Nav Transition */
-        .nav-btn {
-            position: relative;
-        }
-        .nav-btn::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 50%;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(to right, #3B82F6, #8B5CF6);
-            transition: all 0.3s ease;
-            transform: translateX(-50%);
-        }
-        .nav-btn.active::after {
-            width: 100%;
-        }
-        
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.4s ease-out;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Live dot */
-        .live-dot {
-            height: 8px;
-            width: 8px;
-            background-color: #10B981;
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 8px #10B981;
-            animation: pulse-live 1.5s infinite;
-        }
-        
-        @keyframes pulse-live {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
+        .glass { background: rgba(14,20,33,0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); }
+        .glass-card { background: rgba(20,28,45,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
+        .glass-card:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA); }
+        .text-gradient-gold { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(135deg, #F59E0B, #F97316); }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+        .nav-btn { position: relative; }
+        .nav-btn::after { content: ''; position: absolute; bottom: -2px; left: 50%; width: 0; height: 2px; background: linear-gradient(to right, #6366F1, #8B5CF6); transition: all 0.3s ease; transform: translateX(-50%); }
+        .nav-btn.active::after { width: 100%; }
+        .tab-content { display: none; animation: slideUp 0.4s ease-out; }
+        .tab-content.active { display: block; }
+        .live-dot { height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10B981; animation: pulse-live 1.5s infinite; }
+        @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+        .market-pill { transition: all 0.2s ease; cursor: pointer; }
+        .market-pill:hover { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4); }
+        .market-pill.best { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.08); }
+        .conf-ring { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+        .conf-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(255,255,255,0.1); }
+        .stat-bar { height: 6px; border-radius: 3px; transition: width 0.8s ease-out; }
+        .odds-badge { font-variant-numeric: tabular-nums; }
     </style>
 </head>
-<body class="bg-dark text-slate-200 min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-[#0B0F19] to-slate-950">
+<body class="bg-dark text-slate-200 min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-[#080c14] to-slate-950">
     
     <!-- Background accents -->
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-primary/10 blur-[120px]"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-brand-secondary/10 blur-[120px]"></div>
+        <div class="absolute top-[-15%] left-[-10%] w-[35%] h-[35%] rounded-full bg-brand-primary/8 blur-[150px]"></div>
+        <div class="absolute bottom-[-15%] right-[-10%] w-[35%] h-[35%] rounded-full bg-brand-secondary/8 blur-[150px]"></div>
+        <div class="absolute top-[40%] right-[20%] w-[20%] h-[20%] rounded-full bg-brand-accent/5 blur-[120px]"></div>
     </div>
 
     <!-- Header -->
@@ -159,123 +76,105 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                        T
-                    </div>
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-500/30 animate-glow">⚽</div>
                     <h1 class="text-xl font-bold tracking-tight">
                         <span class="text-white">TIPS THE</span> <span class="text-gradient">BIRD</span>
+                        <span class="text-[10px] font-medium text-indigo-400/60 ml-1 align-top">AI</span>
                     </h1>
                 </div>
                 
                 <div class="hidden md:flex items-center gap-8">
-                    <nav class="flex gap-6" id="main-nav">
-                        <button class="nav-btn active text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="worldcup">Mundial</button>
-                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="today">En Vivo / Partidos</button>
-                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="valuebets">Mejores Apuestas</button>
-                        <!-- Calibration tab hidden based on user feedback -->
+                    <nav class="flex gap-1 bg-slate-800/40 rounded-xl p-1" id="main-nav">
+                        <button class="nav-btn active text-sm font-medium text-slate-300 hover:text-white px-4 py-1.5 rounded-lg transition-all" data-tab="worldcup">🏆 Mundial</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white px-4 py-1.5 rounded-lg transition-all" data-tab="today">⚽ En Vivo</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white px-4 py-1.5 rounded-lg transition-all" data-tab="valuebets">💰 Apuestas</button>
                     </nav>
                 </div>
 
-                <div class="flex items-center gap-4">
-                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-xs font-medium">
+                <div class="flex items-center gap-3">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium">
                         <span class="live-dot"></span>
-                        <span class="text-emerald-400">Motor de IA Activo</span>
+                        <span class="text-emerald-400">Motor IA Activo</span>
                     </div>
-                    
-                    <!-- Mobile menu button -->
-                    <button class="md:hidden text-slate-300 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                    </button>
+                    <div class="text-[10px] text-slate-500 hidden lg:block" id="last-update"></div>
                 </div>
             </div>
         </div>
     </header>
 
+    <!-- Mobile Nav -->
+    <div class="md:hidden flex gap-1 px-4 py-2 bg-slate-900/60 border-b border-slate-800/50 overflow-x-auto" id="mobile-nav">
+        <button class="nav-btn active text-xs font-medium text-slate-300 px-3 py-1.5 rounded-lg bg-slate-800/50 whitespace-nowrap" data-tab="worldcup">🏆 Mundial</button>
+        <button class="nav-btn text-xs font-medium text-slate-300 px-3 py-1.5 rounded-lg bg-slate-800/50 whitespace-nowrap" data-tab="today">⚽ En Vivo</button>
+        <button class="nav-btn text-xs font-medium text-slate-300 px-3 py-1.5 rounded-lg bg-slate-800/50 whitespace-nowrap" data-tab="valuebets">💰 Apuestas</button>
+    </div>
+
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         <!-- === WORLD CUP DASHBOARD === -->
         <div id="tab-worldcup" class="tab-content active">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-white mb-1">Mundial 2026</h2>
-                    <p class="text-sm text-slate-400">Fase de Grupos y Eliminatorias (Simulación Monte Carlo)</p>
+                    <h2 class="text-2xl font-bold text-white mb-1">Mundial 2026 🏆</h2>
+                    <p class="text-sm text-slate-400">Fase de Grupos · Modelo Multi-Motor (Poisson + Dixon-Coles + Elo + Form)</p>
                 </div>
-                <button onclick="loadWorldCup()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
+                <button onclick="loadWorldCup()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-xl transition-all shadow-lg flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     Actualizar
                 </button>
             </div>
-            
             <div class="glass rounded-2xl p-6" id="wc-content">
                 <div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>
             </div>
         </div>
 
-        <!-- === UPCOMING MATCHES === -->
+        <!-- === LIVE / MATCHES === -->
         <div id="tab-today" class="tab-content">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-white mb-1">En Vivo / Partidos</h2>
-                    <p class="text-sm text-slate-400">Partidos en vivo, próximos y finalizados con predicciones IA</p>
+                    <h2 class="text-2xl font-bold text-white mb-1">En Vivo / Partidos ⚽</h2>
+                    <p class="text-sm text-slate-400">Partidos en vivo, próximos y finalizados con análisis IA completo</p>
                 </div>
-                <button onclick="loadToday()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
+                <button onclick="loadToday()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-xl transition-all shadow-lg flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     Actualizar
                 </button>
             </div>
-            
-            <div id="today-content" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            <div id="today-content" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
         </div>
 
         <!-- === VALUE BETS === -->
         <div id="tab-valuebets" class="tab-content">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-white mb-1">Mejores Apuestas</h2>
-                    <p class="text-sm text-slate-400">Las apuestas con mayor probabilidad matemática a tu favor</p>
+                    <h2 class="text-2xl font-bold text-white mb-1">Mejores Apuestas 💰</h2>
+                    <p class="text-sm text-slate-400">Análisis completo de todos los mercados · Over/Under · BTTS · 1X2 · Marcadores</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-slate-300">Stake Base:</span>
+                    <span class="text-sm font-medium text-slate-300">Stake:</span>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                        <input type="number" id="vb-stake-amount" value="100" min="0" step="10" oninput="updateVB2Profits()" class="w-24 pl-7 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-primary transition-colors">
+                        <input type="number" id="vb-stake-amount" value="100" min="0" step="10" class="w-24 pl-7 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-brand-primary transition-colors">
                     </div>
                 </div>
             </div>
-            
-            <div id="vb-content" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
-        </div>
-
-        <!-- === CALIBRATION === -->
-        <div id="tab-calibration" class="tab-content">
-            <div class="flex justify-between items-end mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-white mb-1">Calibración del Modelo</h2>
-                    <p class="text-sm text-slate-400">Rendimiento histórico y pesos de blending bayesianos</p>
-                </div>
-                <button onclick="optimizeWeights()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-blue-500/25 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                    Re-optimizar (Scipy SLSQP)
-                </button>
-            </div>
-            
-            <div id="calibration-content" class="space-y-6"></div>
+            <div id="vb-content" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5"></div>
         </div>
 
     </main>
 
-    <!-- Modal (Match Detail) -->
+    <!-- ========== MATCH DETAIL MODAL ========== -->
     <div id="match-modal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
-        <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 md:inset-auto md:left-1/2 md:-translate-x-1/2 md:w-[800px] max-h-[90vh] overflow-y-auto glass border border-slate-700/50 shadow-2xl rounded-2xl flex flex-col">
-            <div class="flex items-center justify-between p-5 border-b border-slate-700/50 bg-slate-800/40 sticky top-0 z-10 backdrop-blur-md">
-                <h3 class="text-lg font-bold text-white" id="modal-title">Detalles del Partido</h3>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity" onclick="closeModal()"></div>
+        <div class="absolute inset-x-2 top-4 bottom-4 md:inset-auto md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2 md:w-[900px] md:max-h-[90vh] overflow-y-auto glass border border-slate-700/30 shadow-2xl rounded-2xl flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-slate-700/30 bg-slate-900/60 sticky top-0 z-10 backdrop-blur-md rounded-t-2xl">
+                <h3 class="text-lg font-bold text-white" id="modal-title">Análisis Completo</h3>
                 <button onclick="closeModal()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <div class="p-6" id="modal-body">
+            <div class="p-6 overflow-y-auto" id="modal-body">
                 <div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>
             </div>
         </div>
@@ -287,7 +186,6 @@
         let chartInstance = null;
         let activeTimers = {};
 
-        // App initialization
         document.addEventListener('DOMContentLoaded', () => {
             initNavigation();
             loadWorldCup();
@@ -296,16 +194,10 @@
         function initNavigation() {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    // Update buttons
-                    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-white'));
+                    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-white', 'bg-indigo-500/20'));
                     btn.classList.add('active', 'text-white');
-                    
-                    // Update tabs
                     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-                    const tabId = `tab-${btn.dataset.tab}`;
-                    document.getElementById(tabId).classList.add('active');
-                    
-                    // Load data
+                    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
                     clearTimers();
                     if (btn.dataset.tab === 'worldcup') loadWorldCup();
                     else if (btn.dataset.tab === 'today') loadToday();
@@ -314,81 +206,64 @@
             });
         }
 
-        function clearTimers() {
-            Object.values(activeTimers).forEach(clearTimeout);
-            activeTimers = {};
-        }
+        function clearTimers() { Object.values(activeTimers).forEach(clearTimeout); activeTimers = {}; }
 
-        async function apiCall(endpoint, method = 'GET') {
+        async function apiCall(endpoint, method='GET') {
             try {
                 const res = await fetch(BASE + endpoint, { method });
-                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return await res.json();
-            } catch (err) {
-                console.error("API Error:", err);
-                throw err;
-            }
+            } catch (err) { console.error("API:", err); throw err; }
         }
 
-        // === WORLD CUP ===
+        function updateTimestamp() {
+            const el = document.getElementById('last-update');
+            if (el) el.textContent = `Última act: ${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}`;
+        }
+
+        // ──────── WORLD CUP ────────
         async function loadWorldCup() {
             const el = document.getElementById('wc-content');
             try {
                 const data = await apiCall('/worldcup/');
                 wcData = data;
                 renderWorldCup(el, data);
+                updateTimestamp();
             } catch (e) {
-                el.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">Error cargando datos: ${e.message}</div>`;
+                el.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">${e.message}</div>`;
             }
-            activeTimers.wc = setTimeout(loadWorldCup, 60000); // 1 min refresh
+            activeTimers.wc = setTimeout(loadWorldCup, 60000);
         }
 
         function renderWorldCup(el, data) {
-            if (!data.groups) {
-                el.innerHTML = '<p class="text-slate-400 text-center py-8">No hay datos disponibles.</p>';
-                return;
-            }
-            
-            let html = '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">';
+            if (!data.groups) { el.innerHTML = '<p class="text-slate-400 text-center py-8">No hay datos disponibles.</p>'; return; }
+            let html = '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">';
             Object.keys(data.groups).sort().forEach(gk => {
                 const g = data.groups[gk];
                 const standings = g.standings || [];
-                
                 html += `
-                <div class="glass-panel rounded-xl overflow-hidden flex flex-col">
-                    <div class="bg-gradient-to-r from-slate-800 to-slate-900/50 px-4 py-3 border-b border-slate-700/50">
-                        <h3 class="font-semibold text-white">${g.name || gk.replace('GROUP_','Grupo ')}</h3>
+                <div class="glass-card rounded-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-indigo-600/20 to-purple-600/10 px-4 py-3 border-b border-slate-700/30">
+                        <h3 class="font-semibold text-white text-sm">${g.name || gk.replace('GROUP_','Grupo ')}</h3>
                     </div>
-                    <div class="p-0 flex-1 overflow-x-auto">
+                    <div class="p-0 overflow-x-auto">
                         <table class="w-full text-sm text-left">
-                            <thead class="text-xs uppercase bg-slate-900/40 text-slate-400">
-                                <tr>
-                                    <th class="px-3 py-2 text-center w-8">#</th>
-                                    <th class="px-3 py-2">Equipo</th>
-                                    <th class="px-2 py-2 text-center">PJ</th>
-                                    <th class="px-2 py-2 text-center">DG</th>
-                                    <th class="px-3 py-2 text-center font-bold">Pts</th>
-                                </tr>
+                            <thead class="text-[10px] uppercase bg-slate-900/40 text-slate-500">
+                                <tr><th class="px-3 py-2 text-center w-6">#</th><th class="px-3 py-2">Equipo</th><th class="px-2 py-2 text-center">PJ</th><th class="px-2 py-2 text-center">DG</th><th class="px-3 py-2 text-center font-bold">Pts</th></tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-800/50">
-                `;
-                standings.forEach(s => {
-                    const crest = s.team_crest ? `<img src="${s.team_crest}" class="w-5 h-5 object-contain inline-block mr-1">` : '';
-                    html += `
-                        <tr class="hover:bg-slate-800/30 transition-colors">
-                            <td class="px-3 py-2.5 text-center text-slate-400 font-medium">${s.position}</td>
-                            <td class="px-3 py-2.5 font-medium whitespace-nowrap">${crest} ${s.team_short || s.team_name}</td>
-                            <td class="px-2 py-2.5 text-center text-slate-400">${s.played}</td>
-                            <td class="px-2 py-2.5 text-center text-slate-400">${s.goal_difference > 0 ? '+'+s.goal_difference : s.goal_difference}</td>
-                            <td class="px-3 py-2.5 text-center font-bold text-white">${s.points}</td>
-                        </tr>
-                    `;
+                            <tbody class="divide-y divide-slate-800/30">`;
+                standings.forEach((s,i) => {
+                    const crest = s.team_crest ? `<img src="${s.team_crest}" class="w-5 h-5 object-contain inline-block mr-1.5" onerror="this.style.display='none'">` : '';
+                    const qualify = i < 2 ? 'border-l-2 border-l-emerald-500' : (i === 2 ? 'border-l-2 border-l-amber-500' : '');
+                    html += `<tr class="hover:bg-slate-800/30 transition-colors ${qualify}">
+                        <td class="px-3 py-2.5 text-center text-slate-500 text-xs">${s.position}</td>
+                        <td class="px-3 py-2.5 font-medium whitespace-nowrap text-sm">${crest}${s.team_short || s.team_name}</td>
+                        <td class="px-2 py-2.5 text-center text-slate-400 text-xs">${s.played}</td>
+                        <td class="px-2 py-2.5 text-center text-xs ${s.goal_difference > 0 ? 'text-emerald-400' : s.goal_difference < 0 ? 'text-red-400' : 'text-slate-400'}">${s.goal_difference > 0 ? '+'+s.goal_difference : s.goal_difference}</td>
+                        <td class="px-3 py-2.5 text-center font-bold text-white">${s.points}</td>
+                    </tr>`;
                 });
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>`;
+                html += '</tbody></table></div></div>';
             });
             html += '</div>';
             el.innerHTML = html;
@@ -401,563 +276,528 @@
             return all;
         }
 
-        // === UPCOMING MATCHES ===
+        // ──────── LIVE / MATCHES ────────
         async function loadToday() {
             const el = document.getElementById('today-content');
             el.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
             try {
                 if (!wcData) wcData = await apiCall('/worldcup/');
-                
-                // Show ALL matches - live, scheduled, and finished
                 let matches = extractMatches(wcData);
                 matches.sort((a,b) => {
-                    // Live matches first, then by date
                     if (a.status === 'IN_PLAY' && b.status !== 'IN_PLAY') return -1;
                     if (b.status === 'IN_PLAY' && a.status !== 'IN_PLAY') return 1;
                     return new Date(a.utc_date) - new Date(b.utc_date);
                 });
-                
-                if (matches.length === 0) {
-                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay partidos disponibles.</div>';
-                    return;
-                }
-                
-                // Group matches: Live, Today, Upcoming, Finished
+                if (!matches.length) { el.innerHTML = '<div class="col-span-full glass-card p-10 text-center rounded-xl text-slate-400">No hay partidos disponibles.</div>'; return; }
+
                 const now = new Date();
                 const todayStr = now.toLocaleDateString('es-MX', {timeZone:'America/Mexico_City'});
-                
-                const liveMatches = matches.filter(m => m.status === 'IN_PLAY');
-                const scheduledMatches = matches.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
-                const finishedMatches = matches.filter(m => m.status === 'FINISHED');
-                
+                const live = matches.filter(m => m.status === 'IN_PLAY');
+                const scheduled = matches.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+                const finished = matches.filter(m => m.status === 'FINISHED');
+
                 let html = '';
-                
-                // LIVE Section
-                if (liveMatches.length > 0) {
-                    html += `
-                    <div class="col-span-full mb-2">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="live-dot"></span>
-                            <h3 class="text-lg font-bold text-emerald-400">EN VIVO</h3>
-                            <span class="text-xs text-slate-500 ml-2">${liveMatches.length} partido${liveMatches.length > 1 ? 's' : ''}</span>
-                        </div>
-                    </div>`;
-                    liveMatches.forEach(m => html += renderMatchCard(m));
-                    html += '<div class="col-span-full h-px bg-slate-700/50 my-4"></div>';
+                if (live.length) {
+                    html += `<div class="col-span-full"><div class="flex items-center gap-2 mb-3"><span class="live-dot"></span><h3 class="text-lg font-bold text-emerald-400">EN VIVO</h3><span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">${live.length}</span></div></div>`;
+                    live.forEach(m => html += renderMatchCard(m));
+                    html += '<div class="col-span-full h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent my-3"></div>';
                 }
-                
-                // Group scheduled by date
-                if (scheduledMatches.length > 0) {
+                if (scheduled.length) {
                     const byDate = {};
-                    scheduledMatches.forEach(m => {
-                        const d = new Date(m.utc_date).toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long', timeZone:'America/Mexico_City'});
-                        if (!byDate[d]) byDate[d] = [];
-                        byDate[d].push(m);
-                    });
-                    
-                    for (const [dateLabel, dMatches] of Object.entries(byDate)) {
-                        const isToday = new Date(dMatches[0].utc_date).toLocaleDateString('es-MX', {timeZone:'America/Mexico_City'}) === todayStr;
-                        html += `
-                        <div class="col-span-full mb-2">
-                            <div class="flex items-center gap-2 mb-4">
-                                <h3 class="text-lg font-bold text-white">${isToday ? '📅 Hoy' : '📆 ' + dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</h3>
-                                <span class="text-xs text-slate-500 ml-2">${dMatches.length} partido${dMatches.length > 1 ? 's' : ''}</span>
-                            </div>
-                        </div>`;
-                        dMatches.forEach(m => html += renderMatchCard(m));
-                        html += '<div class="col-span-full h-px bg-slate-700/50 my-2"></div>';
+                    scheduled.forEach(m => { const d = new Date(m.utc_date).toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long', timeZone:'America/Mexico_City'}); if (!byDate[d]) byDate[d] = []; byDate[d].push(m); });
+                    for (const [label, dm] of Object.entries(byDate)) {
+                        const isToday = new Date(dm[0].utc_date).toLocaleDateString('es-MX', {timeZone:'America/Mexico_City'}) === todayStr;
+                        html += `<div class="col-span-full"><div class="flex items-center gap-2 mb-3"><h3 class="text-base font-bold text-white">${isToday ? '📅 Hoy' : '📆 ' + label.charAt(0).toUpperCase() + label.slice(1)}</h3><span class="text-xs bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">${dm.length}</span></div></div>`;
+                        dm.forEach(m => html += renderMatchCard(m));
+                        html += '<div class="col-span-full h-px bg-slate-800/50 my-2"></div>';
                     }
                 }
-                
-                // Finished matches
-                if (finishedMatches.length > 0) {
-                    html += `
-                    <div class="col-span-full mb-2">
-                        <div class="flex items-center gap-2 mb-4">
-                            <h3 class="text-lg font-bold text-slate-400">✅ Finalizados</h3>
-                            <span class="text-xs text-slate-500 ml-2">${finishedMatches.length} partido${finishedMatches.length > 1 ? 's' : ''}</span>
-                        </div>
-                    </div>`;
-                    finishedMatches.slice(-10).reverse().forEach(m => html += renderMatchCard(m));
+                if (finished.length) {
+                    html += `<div class="col-span-full"><div class="flex items-center gap-2 mb-3"><h3 class="text-base font-bold text-slate-500">Finalizados</h3><span class="text-xs bg-slate-700/50 text-slate-500 px-2 py-0.5 rounded-full">${finished.length}</span></div></div>`;
+                    finished.slice(-8).reverse().forEach(m => html += renderMatchCard(m));
                 }
-                
                 el.innerHTML = html;
+                updateTimestamp();
             } catch (e) {
-                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">Error cargando datos: ${e.message}</div>`;
+                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">${e.message}</div>`;
             }
-            activeTimers.today = setTimeout(loadToday, 60000);
+            activeTimers.today = setTimeout(loadToday, 30000);
         }
 
         function renderMatchCard(m) {
             const hn = m.home_team?.short || m.home_team?.name || 'Local';
             const an = m.away_team?.short || m.away_team?.name || 'Visita';
-            const hc = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-6 h-6 object-contain">` : '';
-            const ac = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-6 h-6 object-contain">` : '';
-            
-            const isLive = m.status === 'IN_PLAY';
-            const isFinished = m.status === 'FINISHED';
-            let scoreStr = 'VS';
-            let statusColor = 'text-slate-400';
-            
-            if (isLive || isFinished) {
-                scoreStr = `${m.score?.home ?? '-'} - ${m.score?.away ?? '-'}`;
-                if (isLive) {
-                    statusColor = 'text-emerald-400 font-bold animate-pulse-slow';
-                } else {
-                    statusColor = 'text-slate-300 font-bold';
-                }
+            const hc = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-7 h-7 object-contain" onerror="this.style.display='none'">` : '<div class="w-7 h-7 rounded-full bg-slate-700"></div>';
+            const ac = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-7 h-7 object-contain" onerror="this.style.display='none'">` : '<div class="w-7 h-7 rounded-full bg-slate-700"></div>';
+            const isLive = m.status === 'IN_PLAY', isFin = m.status === 'FINISHED';
+            let scoreStr = 'VS', statusColor = 'text-slate-500';
+            if (isLive || isFin) {
+                scoreStr = `${m.score?.home ?? '-'} — ${m.score?.away ?? '-'}`;
+                statusColor = isLive ? 'text-emerald-400 font-black animate-pulse-slow' : 'text-slate-300 font-bold';
             }
-
             const time = new Date(m.utc_date).toLocaleTimeString('es-MX', {timeZone:'America/Mexico_City', hour:'2-digit', minute:'2-digit'});
             const dateShort = new Date(m.utc_date).toLocaleDateString('es-MX', {day:'2-digit', month:'short', timeZone:'America/Mexico_City'});
             let timeDisplay = `${dateShort} · ${time}`;
-            if (isLive) timeDisplay = '<span class="live-dot"></span> EN VIVO';
-            if (isFinished) timeDisplay = `<span class="text-slate-500">FINAL</span> · ${dateShort}`;
-            
+            if (isLive) timeDisplay = '<span class="live-dot mr-1"></span> EN VIVO';
+            if (isFin) timeDisplay = `<span class="text-slate-600">FT</span> · ${dateShort}`;
+
+            // Live stats preview
+            let liveStatsHtml = '';
+            if (m.live_stats) {
+                const h = m.live_stats.home, a = m.live_stats.away;
+                liveStatsHtml = `
+                <div class="mt-3 pt-3 border-t border-slate-700/30 grid grid-cols-3 gap-1 text-[10px]">
+                    <div class="text-center"><span class="text-white font-bold">${h.shots||0}</span><br><span class="text-slate-500">Tiros</span></div>
+                    <div class="text-center"><span class="text-white font-bold">${h.shots_on_target||0} - ${a.shots_on_target||0}</span><br><span class="text-slate-500">A puerta</span></div>
+                    <div class="text-center"><span class="text-white font-bold">${a.shots||0}</span><br><span class="text-slate-500">Tiros</span></div>
+                </div>`;
+            }
+
             let predHtml = '';
             const p = m.prediction;
             if (p && p.home_win) {
-                const hw = (p.home_win * 100).toFixed(0);
-                const dw = (p.draw * 100).toFixed(0);
-                const aw = (p.away_win * 100).toFixed(0);
-                
-                // Advanced specials
-                let specialsHtml = '';
-                if (m.special_markets && m.special_markets.asian_handicap) {
-                    const ah = m.special_markets.asian_handicap.line;
-                    const corn = m.special_markets.expected_corners?.total || 0;
-                    specialsHtml = `
-                    <div class="mt-4 pt-4 border-t border-slate-700/50 flex gap-4 text-xs">
-                        <div class="flex-1 bg-slate-800/50 rounded-lg p-2 text-center">
-                            <span class="text-slate-400 block mb-1">Handicap Asiático</span>
-                            <span class="font-medium text-brand-primary">${ah > 0 ? '-'+ah : '+'+Math.abs(ah)}</span>
-                        </div>
-                        <div class="flex-1 bg-slate-800/50 rounded-lg p-2 text-center">
-                            <span class="text-slate-400 block mb-1">Córners Totales</span>
-                            <span class="font-medium text-amber-400">${corn}</span>
-                        </div>
-                    </div>`;
-                }
-                
+                const hw = (p.home_win*100).toFixed(0), dw = (p.draw*100).toFixed(0), aw = (p.away_win*100).toFixed(0);
+                const confPct = p.confidence ? (p.confidence * 100).toFixed(0) : '—';
+                const confColor = p.confidence > 0.6 ? 'text-emerald-400' : p.confidence > 0.4 ? 'text-amber-400' : 'text-red-400';
                 predHtml = `
-                <div class="mt-5">
-                    <div class="flex justify-between text-xs font-medium mb-1.5 px-1">
-                        <span class="text-blue-400">${hw}%</span>
-                        <span class="text-slate-400">${dw}%</span>
+                <div class="mt-4">
+                    <div class="flex justify-between text-[10px] font-semibold mb-1 px-0.5">
+                        <span class="text-indigo-400">${hw}%</span>
+                        <span class="text-slate-500">${dw}%</span>
                         <span class="text-purple-400">${aw}%</span>
                     </div>
-                    <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
-                        <div style="width: ${hw}%" class="bg-blue-500"></div>
-                        <div style="width: ${dw}%" class="bg-slate-500"></div>
-                        <div style="width: ${aw}%" class="bg-purple-500"></div>
+                    <div class="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden flex">
+                        <div style="width:${hw}%" class="bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-l-full"></div>
+                        <div style="width:${dw}%" class="bg-slate-600"></div>
+                        <div style="width:${aw}%" class="bg-gradient-to-r from-purple-500 to-purple-400 rounded-r-full"></div>
                     </div>
-                    ${specialsHtml}
+                    <div class="flex justify-between items-center mt-2">
+                        <div class="flex gap-1">
+                            ${m.special_markets?.over_under ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400">O2.5 ${(m.special_markets.over_under.over_2_5*100).toFixed(0)}%</span>` : ''}
+                            ${m.special_markets?.btts ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400">BTTS ${(m.special_markets.btts.yes*100).toFixed(0)}%</span>` : ''}
+                        </div>
+                        <span class="text-[10px] ${confColor} font-medium">🎯 ${confPct}%</span>
+                    </div>
                 </div>`;
             }
 
             return `
-            <div class="glass-panel rounded-2xl p-5 hover:border-slate-600 transition-colors cursor-pointer" onclick="openModal(${m.id})">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-xs font-medium px-2 py-1 bg-slate-800 rounded text-slate-300">${m.group ? m.group.replace('GROUP_','Grupo ') : 'Torneo'}</span>
-                    <div class="flex items-center gap-1.5 text-xs font-medium ${isLive ? 'text-emerald-400' : 'text-slate-400'}">
-                        ${timeDisplay}
-                    </div>
+            <div class="glass-card rounded-2xl p-5 cursor-pointer group" onclick="openModal(${m.id})">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-medium px-2 py-0.5 bg-slate-800/60 rounded-lg text-slate-400">${m.group ? m.group.replace('GROUP_','Gr ') : m.stage || 'WC'}</span>
+                    <div class="flex items-center gap-1 text-[11px] font-medium ${isLive ? 'text-emerald-400' : 'text-slate-500'}">${timeDisplay}</div>
                 </div>
-                
                 <div class="flex items-center justify-between">
-                    <div class="flex flex-col items-center gap-2 flex-1">
-                        ${hc}
-                        <span class="font-semibold text-sm text-center">${hn}</span>
-                    </div>
-                    
-                    <div class="px-4 py-2 bg-slate-800/60 rounded-xl text-lg ${statusColor}">
-                        ${scoreStr}
-                    </div>
-                    
-                    <div class="flex flex-col items-center gap-2 flex-1">
-                        ${ac}
-                        <span class="font-semibold text-sm text-center">${an}</span>
-                    </div>
+                    <div class="flex flex-col items-center gap-1.5 flex-1 min-w-0">${hc}<span class="font-semibold text-xs text-center truncate w-full">${hn}</span></div>
+                    <div class="px-4 py-2 bg-slate-800/40 rounded-xl text-xl ${statusColor} min-w-[80px] text-center">${scoreStr}</div>
+                    <div class="flex flex-col items-center gap-1.5 flex-1 min-w-0">${ac}<span class="font-semibold text-xs text-center truncate w-full">${an}</span></div>
                 </div>
-                
                 ${predHtml}
+                ${liveStatsHtml}
+                <div class="text-center mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span class="text-[10px] text-indigo-400 font-medium">Clic para análisis completo →</span>
+                </div>
             </div>`;
         }
 
-        // === VALUE BETS ===
+        // ──────── VALUE BETS ────────
         async function loadValueBets() {
             const el = document.getElementById('vb-content');
             el.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
             try {
                 if (!wcData) wcData = await apiCall('/worldcup/');
                 const matches = extractMatches(wcData).filter(m => (m.status === 'TIMED' || m.status === 'SCHEDULED') && m.prediction);
-                
-                if (matches.length === 0) {
-                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay predicciones disponibles.</div>';
-                    return;
-                }
-                
-                // Sort by time
+                if (!matches.length) { el.innerHTML = '<div class="col-span-full glass-card p-10 text-center rounded-xl text-slate-400">No hay predicciones disponibles.</div>'; return; }
                 matches.sort((a,b) => new Date(a.utc_date) - new Date(b.utc_date));
-                
+
                 let html = '';
-                let cardIdx = 0;
-                matches.forEach((m) => {
-                    const p = m.prediction;
-                    const homeName = m.home_team?.short || m.home_team?.name || 'Local';
-                    const awayName = m.away_team?.short || m.away_team?.name || 'Visita';
-                    const homeCrest = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-5 h-5 object-contain inline-block">` : '';
-                    const awayCrest = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-5 h-5 object-contain inline-block">` : '';
-                    
-                    const outcomes = [
-                        { label: homeName, icon: homeCrest, type: 'Local', val: p.home_win || 0, color: 'blue', borderColor: 'border-l-blue-500' },
-                        { label: 'Empate', icon: '🤝', type: 'Empate', val: p.draw || 0, color: 'slate', borderColor: 'border-l-slate-500' },
-                        { label: awayName, icon: awayCrest, type: 'Visita', val: p.away_win || 0, color: 'purple', borderColor: 'border-l-purple-500' }
-                    ];
-                    
+                matches.forEach(m => {
+                    const p = m.prediction, sm = m.special_markets || {};
+                    const hn = m.home_team?.short || m.home_team?.name || '?';
+                    const an = m.away_team?.short || m.away_team?.name || '?';
+                    const hCrest = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-4 h-4 object-contain inline" onerror="this.style.display='none'">` : '';
+                    const aCrest = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-4 h-4 object-contain inline" onerror="this.style.display='none'">` : '';
                     const time = new Date(m.utc_date).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', timeZone:'America/Mexico_City'});
                     const dateStr = new Date(m.utc_date).toLocaleDateString('es-MX', {day:'2-digit', month:'short', timeZone:'America/Mexico_City'});
-                    
+                    const confPct = p.confidence ? (p.confidence * 100).toFixed(0) : '—';
+                    const confColor = p.confidence > 0.6 ? 'text-emerald-400 border-emerald-500/30' : p.confidence > 0.4 ? 'text-amber-400 border-amber-500/30' : 'text-red-400 border-red-500/30';
+
+                    // 1X2 outcomes
+                    const outcomes = [
+                        { label: hn, type: '1', val: p.home_win },
+                        { label: 'X', type: 'X', val: p.draw },
+                        { label: an, type: '2', val: p.away_win }
+                    ];
+                    const bestIdx = outcomes.reduce((bi, o, i) => o.val > outcomes[bi].val ? i : bi, 0);
+
+                    // Market pills
+                    let marketsHtml = '';
+                    if (sm.over_under) {
+                        marketsHtml += `<div class="grid grid-cols-2 gap-1.5 mt-3">`;
+                        const ou25 = sm.over_under;
+                        marketsHtml += `
+                            <div class="market-pill ${ou25.over_2_5 > 0.55 ? 'best' : ''} border border-slate-700/40 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-slate-400">Over 2.5</div>
+                                <div class="text-sm font-bold text-white">${(ou25.over_2_5*100).toFixed(0)}%</div>
+                                <div class="text-[9px] text-slate-500 odds-badge">${(1/ou25.over_2_5).toFixed(2)}</div>
+                            </div>
+                            <div class="market-pill ${ou25.under_2_5 > 0.55 ? 'best' : ''} border border-slate-700/40 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-slate-400">Under 2.5</div>
+                                <div class="text-sm font-bold text-white">${(ou25.under_2_5*100).toFixed(0)}%</div>
+                                <div class="text-[9px] text-slate-500 odds-badge">${(1/ou25.under_2_5).toFixed(2)}</div>
+                            </div>`;
+                        marketsHtml += `</div>`;
+                    }
+                    if (sm.btts) {
+                        marketsHtml += `<div class="grid grid-cols-2 gap-1.5 mt-1.5">
+                            <div class="market-pill ${sm.btts.yes > 0.55 ? 'best' : ''} border border-slate-700/40 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-slate-400">BTTS Sí</div>
+                                <div class="text-sm font-bold text-white">${(sm.btts.yes*100).toFixed(0)}%</div>
+                            </div>
+                            <div class="market-pill ${sm.btts.no > 0.55 ? 'best' : ''} border border-slate-700/40 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-slate-400">BTTS No</div>
+                                <div class="text-sm font-bold text-white">${(sm.btts.no*100).toFixed(0)}%</div>
+                            </div>
+                        </div>`;
+                    }
+
                     // Exact score
-                    let exactScoreHtml = '';
-                    if (m.special_markets && m.special_markets.exact_scores && m.special_markets.exact_scores.length > 0) {
-                        const topScore = m.special_markets.exact_scores[0];
-                        exactScoreHtml = `
-                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center text-xs">
-                            <span class="text-slate-400">🎯 Marcador M.P.</span>
-                            <span class="font-bold text-emerald-400">${topScore.score} <span class="text-slate-500 font-normal">(${(topScore.probability*100).toFixed(1)}%)</span></span>
-                        </div>`;
-                    }
-                    
-                    // Expected goals
-                    const xgHome = p.expected_goals_home ? p.expected_goals_home.toFixed(1) : null;
-                    const xgAway = p.expected_goals_away ? p.expected_goals_away.toFixed(1) : null;
-                    let xgHtml = '';
-                    if (xgHome && xgAway) {
-                        xgHtml = `
-                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center text-xs">
-                            <span class="text-slate-400">⚽ Goles esperados</span>
-                            <span class="font-medium text-white">${xgHome} - ${xgAway}</span>
+                    let esHtml = '';
+                    if (sm.exact_scores && sm.exact_scores.length) {
+                        const top = sm.exact_scores[0];
+                        esHtml = `<div class="flex justify-between items-center text-xs mt-3 pt-3 border-t border-slate-700/30">
+                            <span class="text-slate-500">🎯 Marcador M.P.</span>
+                            <span class="font-bold text-emerald-400">${top.score} <span class="text-slate-600 font-normal">(${(top.probability*100).toFixed(1)}%)</span></span>
                         </div>`;
                     }
 
                     html += `
-                    <div class="glass-panel rounded-2xl overflow-hidden hover:border-slate-600 transition-all cursor-pointer" onclick="openModal(${m.id})">
-                        <!-- Match Header -->
-                        <div class="bg-gradient-to-r from-slate-800 to-slate-900/50 px-5 py-3 border-b border-slate-700/50 flex justify-between items-center">
+                    <div class="glass-card rounded-2xl overflow-hidden cursor-pointer" onclick="openModal(${m.id})">
+                        <div class="bg-gradient-to-r from-slate-800/60 to-slate-900/30 px-4 py-2.5 border-b border-slate-700/20 flex justify-between items-center">
+                            <div class="flex items-center gap-2 text-xs text-slate-400"><span>${dateStr}</span><span class="text-slate-600">·</span><span>${time}</span></div>
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-medium text-slate-300">${dateStr}</span>
-                                <span class="text-xs text-slate-500">•</span>
-                                <span class="text-xs font-medium text-slate-300">${time}</span>
+                                <span class="text-[10px] px-2 py-0.5 bg-slate-700/40 rounded text-slate-400">${m.group ? m.group.replace('GROUP_','Gr ') : 'WC'}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded border ${confColor} font-medium">🎯${confPct}%</span>
                             </div>
-                            <span class="text-xs font-medium px-2 py-0.5 bg-slate-700/60 rounded text-slate-300">${m.group ? m.group.replace('GROUP_','Gr. ') : 'Torneo'}</span>
                         </div>
-                        
-                        <!-- Teams -->
-                        <div class="px-5 pt-4 pb-3">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center gap-2 flex-1">
-                                    ${homeCrest}
-                                    <span class="font-semibold text-sm text-white">${homeName}</span>
-                                </div>
-                                <span class="text-xs font-medium text-slate-500 px-2">VS</span>
-                                <div class="flex items-center gap-2 flex-1 justify-end">
-                                    <span class="font-semibold text-sm text-white">${awayName}</span>
-                                    ${awayCrest}
-                                </div>
+                        <div class="px-4 pt-4 pb-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-1.5">${hCrest}<span class="font-semibold text-sm">${hn}</span></div>
+                                <span class="text-[10px] text-slate-600">vs</span>
+                                <div class="flex items-center gap-1.5"><span class="font-semibold text-sm">${an}</span>${aCrest}</div>
                             </div>
-                            
-                            <!-- Probability bar -->
-                            <div class="flex justify-between text-[10px] font-medium mb-1 px-0.5">
-                                <span class="text-blue-400">${(p.home_win*100).toFixed(0)}%</span>
-                                <span class="text-slate-400">${(p.draw*100).toFixed(0)}%</span>
-                                <span class="text-purple-400">${(p.away_win*100).toFixed(0)}%</span>
+                            <!-- 1X2 -->
+                            <div class="grid grid-cols-3 gap-1.5">
+                                ${outcomes.map((o,i) => {
+                                    const odds = o.val > 0 ? (1/o.val) : 99;
+                                    const isBest = i === bestIdx;
+                                    return `<div class="market-pill ${isBest ? 'best' : ''} border border-slate-700/40 rounded-lg p-2 text-center">
+                                        <div class="text-[10px] text-slate-400 font-medium">${o.type}</div>
+                                        <div class="text-base font-black text-white odds-badge">${odds.toFixed(2)}</div>
+                                        <div class="text-[9px] text-slate-500">${(o.val*100).toFixed(0)}%</div>
+                                    </div>`;
+                                }).join('')}
                             </div>
-                            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex mb-4">
-                                <div style="width: ${(p.home_win*100).toFixed(0)}%" class="bg-blue-500"></div>
-                                <div style="width: ${(p.draw*100).toFixed(0)}%" class="bg-slate-500"></div>
-                                <div style="width: ${(p.away_win*100).toFixed(0)}%" class="bg-purple-500"></div>
-                            </div>
-
-                            <!-- All 3 betting options -->
-                            <div class="grid grid-cols-3 gap-2">`;
-                    
-                    outcomes.forEach(o => {
-                        const odds = o.val > 0 ? (1/o.val) : 99;
-                        const edgePct = o.val > 0 ? Math.max(0, (o.val - (1/odds)) * 100) : 0;
-                        // Simulate a market edge by assuming market odds are slightly less favorable
-                        const marketOdds = odds * (1 + (Math.random() * 0.08 + 0.02)); // market odds 2-10% higher
-                        const realEdge = ((1/odds) / (1/marketOdds) - 1) * 100;
-                        const edgeColor = realEdge > 5 ? 'text-emerald-400' : (realEdge > 2 ? 'text-amber-400' : 'text-slate-400');
-                        const bgHighlight = o.val === Math.max(p.home_win, p.draw, p.away_win) ? 'bg-gradient-to-b from-slate-800/80 to-slate-900/80 border-slate-600/50 ring-1 ring-slate-600/30' : 'bg-slate-800/50 border-slate-700/30';
-                        
-                        html += `
-                                <div class="vb-option ${bgHighlight} border rounded-xl p-3 text-center flex flex-col gap-1" data-odds="${odds.toFixed(2)}" data-cardidx="${cardIdx}">
-                                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">${o.type}</span>
-                                    <span class="text-xs font-semibold text-white truncate">${typeof o.icon === 'string' && o.icon.startsWith('<') ? '' : ''}${o.type === 'Empate' ? '🤝' : ''}</span>
-                                    <span class="text-lg font-black text-white">${odds.toFixed(2)}</span>
-                                    <span class="text-[10px] font-medium ${edgeColor}">+${realEdge.toFixed(1)}% edge</span>
-                                    <span class="text-[10px] text-slate-500">${(o.val*100).toFixed(0)}% prob</span>
-                                </div>`;
-                        cardIdx++;
-                    });
-                    
-                    html += `
-                            </div>
-                            ${exactScoreHtml}
-                            ${xgHtml}
+                            <!-- xG -->
+                            ${p.expected_goals_home ? `<div class="flex justify-between items-center text-xs mt-2 px-1"><span class="text-slate-500">⚽ xG</span><span class="font-medium text-white">${p.expected_goals_home.toFixed(1)} - ${p.expected_goals_away.toFixed(1)}</span></div>` : ''}
+                            ${marketsHtml}
+                            ${esHtml}
                         </div>
                     </div>`;
                 });
-                
                 el.innerHTML = html;
-                updateVB2Profits();
+                updateTimestamp();
             } catch (e) {
-                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border-red-500/20 rounded-xl text-red-400">${e.message}</div>`;
             }
         }
 
-        function updateVB2Profits() {
-            const stake = parseFloat(document.getElementById('vb-stake-amount').value) || 0;
-            document.querySelectorAll('.vb-option').forEach(opt => {
-                // We could add profit display per option, but for now the card-level profit is removed
-                // since we show odds inline per option
-            });
-        }
-
-        // === CALIBRATION ===
-        async function loadCalibration() {
-            const el = document.getElementById('calibration-content');
-            el.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
-            try {
-                const data = await apiCall('/calibration/');
-                renderCalibration(el, data);
-            } catch (e) {
-                el.innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
-            }
-        }
-
-        async function optimizeWeights() {
-            const el = document.getElementById('calibration-content');
-            el.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
-            try {
-                const data = await apiCall('/calibration/', 'POST');
-                renderCalibration(el, data);
-            } catch (e) {
-                el.innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
-            }
-        }
-
-        function renderCalibration(el, d) {
-            const acc = (d.accuracy * 100).toFixed(1);
-            const brier = d.brier_avg?.toFixed(4) || 'N/A';
-            const logloss = d.log_loss_avg?.toFixed(4) || 'N/A';
-            const w = d.blend_weights || {};
-
-            let html = `
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="glass-panel p-5 rounded-2xl">
-                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Muestras</div>
-                    <div class="text-2xl font-bold text-white">${d.count || 0}</div>
-                </div>
-                <div class="glass-panel p-5 rounded-2xl border-l-4 ${acc > 50 ? 'border-emerald-500' : 'border-amber-500'}">
-                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Precisión</div>
-                    <div class="text-2xl font-bold text-white">${acc}%</div>
-                </div>
-                <div class="glass-panel p-5 rounded-2xl">
-                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Brier Score</div>
-                    <div class="text-2xl font-bold ${d.brier_avg < 0.2 ? 'text-emerald-400' : 'text-white'}">${brier}</div>
-                </div>
-                <div class="glass-panel p-5 rounded-2xl">
-                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Log-Loss</div>
-                    <div class="text-2xl font-bold text-white">${logloss}</div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="glass-panel p-6 rounded-2xl">
-                    <h3 class="text-lg font-bold text-white mb-6">Pesos Optimizados (SLSQP)</h3>
-                    <div class="space-y-4">`;
-            
-            const colors = ['bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
-            Object.entries(w).forEach(([key, val], idx) => {
-                const pct = (val * 100).toFixed(1);
-                const color = colors[idx % colors.length];
-                html += `
-                    <div>
-                        <div class="flex justify-between text-sm mb-1.5">
-                            <span class="font-medium capitalize text-slate-300">${key}</span>
-                            <span class="text-white">${pct}%</span>
-                        </div>
-                        <div class="w-full bg-slate-800 rounded-full h-2">
-                            <div class="${color} h-2 rounded-full" style="width: ${pct}%"></div>
-                        </div>
-                    </div>`;
-            });
-            
-            html += `
-                    </div>
-                </div>
-                <div class="glass-panel p-6 rounded-2xl">
-                    <h3 class="text-lg font-bold text-white mb-6">Distribución</h3>
-                    <div class="relative h-48 w-full">
-                        <canvas id="weightsChart"></canvas>
-                    </div>
-                </div>
-            </div>`;
-            
-            el.innerHTML = html;
-            
-            // Render chart
-            if (chartInstance) chartInstance.destroy();
-            const ctx = document.getElementById('weightsChart').getContext('2d');
-            chartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(w).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
-                    datasets: [{
-                        data: Object.values(w),
-                        backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#F43F5E'],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Outfit', size: 12 } } }
-                    },
-                    cutout: '70%'
-                }
-            });
-        }
-
-        // === MODAL ===
+        // ──────── MODAL ────────
         function openModal(id) {
             document.getElementById('match-modal').classList.remove('hidden');
             document.getElementById('modal-body').innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
-            
+            // First try to find match in cached data
+            let cached = null;
+            if (wcData) {
+                const all = extractMatches(wcData);
+                cached = all.find(m => m.id === id);
+            }
             apiCall(`/match-detail/${id}/`)
                 .then(data => {
                     if (data.error) throw new Error(data.error);
-                    renderModalContent(data);
+                    // Merge cached special_markets if API detail doesn't have them
+                    if (cached && cached.special_markets && !data.special_markets) {
+                        data.special_markets = cached.special_markets;
+                    }
+                    if (cached && cached.prediction && !data.prediction) {
+                        data.prediction = cached.prediction;
+                    }
+                    renderFullModal(data, cached);
                 })
                 .catch(e => {
-                    document.getElementById('modal-body').innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+                    // Fallback to cached data if API fails
+                    if (cached) {
+                        renderFullModal(cached, cached);
+                    } else {
+                        document.getElementById('modal-body').innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-xl text-red-400">${e.message}</div>`;
+                    }
                 });
         }
 
-        function closeModal() {
-            document.getElementById('match-modal').classList.add('hidden');
-        }
+        function closeModal() { document.getElementById('match-modal').classList.add('hidden'); }
 
-        function renderModalContent(d) {
-            const hn = d.home_team?.short || d.home_team?.name || 'Local';
-            const an = d.away_team?.short || d.away_team?.name || 'Visita';
-            document.getElementById('modal-title').textContent = `${hn} vs ${an}`;
-            
-            const isLive = d.status === 'IN_PLAY';
-            const hc = d.home_team?.crest ? `<img src="${d.home_team.crest}" class="w-16 h-16 object-contain mb-3">` : '';
-            const ac = d.away_team?.crest ? `<img src="${d.away_team.crest}" class="w-16 h-16 object-contain mb-3">` : '';
-            
+        function renderFullModal(d, cached) {
+            const hn = d.home_team?.name || d.home_team?.short || 'Local';
+            const an = d.away_team?.name || d.away_team?.short || 'Visita';
+            document.getElementById('modal-title').textContent = `${hn} vs ${an} · Análisis Completo`;
+
+            const isLive = d.status === 'IN_PLAY', isFin = d.status === 'FINISHED';
+            const hc = d.home_team?.crest ? `<img src="${d.home_team.crest}" class="w-14 h-14 object-contain" onerror="this.style.display='none'">` : '';
+            const ac = d.away_team?.crest ? `<img src="${d.away_team.crest}" class="w-14 h-14 object-contain" onerror="this.style.display='none'">` : '';
+            let scoreStr = (d.status === 'TIMED' || d.status === 'SCHEDULED') ? 'VS' : `${d.score?.home ?? '-'} — ${d.score?.away ?? '-'}`;
             let scoreClass = isLive ? 'text-emerald-400 animate-pulse-slow' : 'text-white';
-            let scoreStr = (d.status === 'TIMED' || d.status === 'SCHEDULED') ? 'VS' : `${d.score?.home ?? '-'} - ${d.score?.away ?? '-'}`;
-            
+
+            const p = d.prediction || {};
+            const sm = d.special_markets || (cached && cached.special_markets) || {};
+            const mk = d.markets || {};
+
             let html = `
-            <div class="glass-panel rounded-2xl p-6 mb-6">
+            <!-- Match Header -->
+            <div class="glass-card rounded-2xl p-6 mb-6">
                 <div class="flex items-center justify-between">
-                    <div class="flex-1 flex flex-col items-center">
-                        ${hc}
-                        <span class="font-bold text-lg text-center">${d.home_team?.name || hn}</span>
+                    <div class="flex-1 flex flex-col items-center gap-2">${hc}<span class="font-bold text-sm text-center">${hn}</span></div>
+                    <div class="px-6 flex flex-col items-center">
+                        <span class="text-4xl font-black ${scoreClass}">${scoreStr}</span>
+                        ${isLive ? `<span class="mt-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full flex items-center gap-1"><span class="live-dot"></span>${d.live_stats?.game_time || 'EN VIVO'}</span>` : ''}
+                        ${isFin ? '<span class="mt-2 text-xs text-slate-500">FINAL</span>' : ''}
                     </div>
-                    <div class="px-8 flex flex-col items-center">
-                        <span class="text-4xl font-black ${scoreClass} tracking-tight">${scoreStr}</span>
-                        ${isLive ? '<span class="mt-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">EN VIVO</span>' : ''}
-                    </div>
-                    <div class="flex-1 flex flex-col items-center">
-                        ${ac}
-                        <span class="font-bold text-lg text-center">${d.away_team?.name || an}</span>
-                    </div>
+                    <div class="flex-1 flex flex-col items-center gap-2">${ac}<span class="font-bold text-sm text-center">${an}</span></div>
                 </div>
             </div>`;
-            
-            const p = d.prediction;
-            if (p) {
-                // Main Probabilities
+
+            // ─── PREDICTION SECTION ───
+            if (p.home_win) {
+                const hw = (p.home_win*100).toFixed(1), dw = (p.draw*100).toFixed(1), aw = (p.away_win*100).toFixed(1);
+                const conf = p.confidence ? (p.confidence*100).toFixed(0) : '—';
+                const agree = p.model_agreement ? (p.model_agreement*100).toFixed(0) : '—';
+                const confCol = p.confidence > 0.6 ? '#10B981' : p.confidence > 0.4 ? '#F59E0B' : '#F43F5E';
+
                 html += `
-                <h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Probabilidades</h4>
-                <div class="grid grid-cols-3 gap-4 mb-6">
-                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-blue-500">
-                        <span class="block text-2xl font-bold text-white">${(p.home_win*100).toFixed(0)}%</span>
-                        <span class="text-xs text-slate-400">Victoria Local</span>
+                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">📊 Probabilidades 1X2</h4>
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <div class="glass-card rounded-xl p-4 text-center border-t-2 border-indigo-500">
+                        <span class="block text-3xl font-black text-white">${hw}%</span>
+                        <span class="text-[10px] text-slate-400 uppercase">Local</span>
+                        <span class="block text-xs text-indigo-400 mt-1 odds-badge">${(1/p.home_win).toFixed(2)}</span>
                     </div>
-                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-slate-500">
-                        <span class="block text-2xl font-bold text-white">${(p.draw*100).toFixed(0)}%</span>
-                        <span class="text-xs text-slate-400">Empate</span>
+                    <div class="glass-card rounded-xl p-4 text-center border-t-2 border-slate-500">
+                        <span class="block text-3xl font-black text-white">${dw}%</span>
+                        <span class="text-[10px] text-slate-400 uppercase">Empate</span>
+                        <span class="block text-xs text-slate-400 mt-1 odds-badge">${(1/p.draw).toFixed(2)}</span>
                     </div>
-                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-purple-500">
-                        <span class="block text-2xl font-bold text-white">${(p.away_win*100).toFixed(0)}%</span>
-                        <span class="text-xs text-slate-400">Victoria Visita</span>
+                    <div class="glass-card rounded-xl p-4 text-center border-t-2 border-purple-500">
+                        <span class="block text-3xl font-black text-white">${aw}%</span>
+                        <span class="text-[10px] text-slate-400 uppercase">Visita</span>
+                        <span class="block text-xs text-purple-400 mt-1 odds-badge">${(1/p.away_win).toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <!-- Confidence & xG -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase mb-1">Confianza</div>
+                        <div class="text-2xl font-black" style="color:${confCol}">${conf}%</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase mb-1">Acuerdo Modelos</div>
+                        <div class="text-2xl font-black text-white">${agree}%</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase mb-1">xG Local</div>
+                        <div class="text-2xl font-black text-indigo-400">${p.expected_goals_home?.toFixed(2) || '—'}</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase mb-1">xG Visita</div>
+                        <div class="text-2xl font-black text-purple-400">${p.expected_goals_away?.toFixed(2) || '—'}</div>
                     </div>
                 </div>`;
-                
-                // Advanced Markets
-                if (d.special_markets) {
-                    const sm = d.special_markets;
-                    
-                    html += `<h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8">Mercados Premium (Engine)</h4>`;
-                    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-                    
-                    // Asian Handicap
-                    if (sm.asian_handicap) {
-                        html += `
-                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
-                            <span class="text-slate-300">Asian Handicap Sugerido</span>
-                            <span class="font-bold text-brand-primary bg-blue-500/20 px-3 py-1 rounded text-lg">${sm.asian_handicap.line > 0 ? '-'+sm.asian_handicap.line : '+'+Math.abs(sm.asian_handicap.line)}</span>
-                        </div>`;
-                    }
-                    
-                    // Halftime
-                    if (sm.halftime) {
-                        html += `
-                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
-                            <span class="text-slate-300">Empate al Descanso (HT)</span>
-                            <span class="font-bold text-white">${(sm.halftime.draw_prob*100).toFixed(1)}%</span>
-                        </div>`;
-                    }
-                    
-                    // Corners
-                    if (sm.expected_corners) {
-                        html += `
-                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
-                            <span class="text-slate-300">Total de Córners (Esp.)</span>
-                            <span class="font-bold text-amber-400 text-lg">${sm.expected_corners.total}</span>
-                        </div>`;
-                    }
-                    
-                    html += `</div>`;
-                    
-                    // Exact Scores
-                    if (sm.exact_scores && sm.exact_scores.length > 0) {
-                        html += `<h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8">Marcadores Exactos (Dixon-Coles)</h4>`;
-                        html += `<div class="grid grid-cols-2 md:grid-cols-5 gap-3">`;
-                        sm.exact_scores.forEach((s, i) => {
-                            const isTop = i === 0;
-                            html += `
-                            <div class="${isTop ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-900/40 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700/50'} border rounded-xl p-3 text-center">
-                                <span class="block font-black text-xl mb-1 ${isTop ? 'text-emerald-400' : 'text-white'}">${s.score}</span>
-                                <span class="text-xs ${isTop ? 'text-emerald-300' : 'text-slate-400'}">${(s.probability*100).toFixed(1)}%</span>
-                            </div>`;
-                        });
-                        html += `</div>`;
-                    }
+            }
+
+            // ─── OVER/UNDER ───
+            const ou = sm.over_under || mk.over_under || {};
+            if (Object.keys(ou).length) {
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">⬆️⬇️ Over / Under</h4>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">`;
+                for (const line of [0.5, 1.5, 2.5, 3.5, 4.5]) {
+                    const key_o = `over_${String(line).replace('.','_')}`;
+                    const key_u = `under_${String(line).replace('.','_')}`;
+                    const ov = ou[key_o] || 0, un = ou[key_u] || 0;
+                    html += `
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-[10px] text-slate-500 mb-1">${line}</div>
+                        <div class="flex gap-1 justify-center">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${ov > 0.5 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'}">O ${(ov*100).toFixed(0)}%</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${un > 0.5 ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-800 text-slate-400'}">U ${(un*100).toFixed(0)}%</span>
+                        </div>
+                    </div>`;
                 }
+                html += '</div>';
+            }
+
+            // ─── BTTS + DOUBLE CHANCE ───
+            const btts = sm.btts || (mk.both_teams_score ? {yes: mk.both_teams_score.yes, no: mk.both_teams_score.no} : null);
+            const dc = sm.double_chance || mk.double_chance || null;
+            if (btts || dc) {
+                html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">';
+                if (btts) {
+                    html += `<div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">🤝 Ambos Marcan (BTTS)</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="glass-card rounded-xl p-3 text-center ${btts.yes > 0.5 ? 'border-emerald-500/30' : ''}">
+                                <div class="text-2xl font-black text-white">${(btts.yes*100).toFixed(0)}%</div>
+                                <div class="text-[10px] text-emerald-400">Sí</div>
+                            </div>
+                            <div class="glass-card rounded-xl p-3 text-center ${btts.no > 0.5 ? 'border-red-500/30' : ''}">
+                                <div class="text-2xl font-black text-white">${(btts.no*100).toFixed(0)}%</div>
+                                <div class="text-[10px] text-red-400">No</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                if (dc) {
+                    const dcData = [
+                        {label: '1X', val: dc['1X'] || dc.home_or_draw || 0},
+                        {label: '12', val: dc['12'] || dc.home_or_away || 0},
+                        {label: 'X2', val: dc['X2'] || dc.draw_or_away || 0},
+                    ];
+                    html += `<div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">🎲 Doble Oportunidad</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${dcData.map(d => `
+                                <div class="glass-card rounded-xl p-3 text-center">
+                                    <div class="text-lg font-black text-white">${(d.val*100).toFixed(0)}%</div>
+                                    <div class="text-[10px] text-slate-400">${d.label}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                }
+                html += '</div>';
+            }
+
+            // ─── HALFTIME ───
+            const ht = sm.halftime || null;
+            if (ht) {
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">🕐 Primera Mitad</h4>
+                <div class="grid grid-cols-4 gap-2 mb-6">
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-lg font-black text-white">${(ht.home*100).toFixed(0)}%</div>
+                        <div class="text-[10px] text-indigo-400">1</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-lg font-black text-white">${(ht.draw*100).toFixed(0)}%</div>
+                        <div class="text-[10px] text-slate-400">X</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-lg font-black text-white">${(ht.away*100).toFixed(0)}%</div>
+                        <div class="text-[10px] text-purple-400">2</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-3 text-center">
+                        <div class="text-lg font-black text-white">${(ht.over_0_5*100).toFixed(0)}%</div>
+                        <div class="text-[10px] text-amber-400">O 0.5</div>
+                    </div>
+                </div>`;
+            }
+
+            // ─── EXACT SCORES ───
+            const es = sm.exact_scores || d.exact_scores || [];
+            if (es.length) {
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">🎯 Marcadores Exactos (Dixon-Coles)</h4>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">`;
+                es.slice(0, 10).forEach((s, i) => {
+                    const sc = s.score || `${s.home}-${s.away}`;
+                    const pr = s.probability;
+                    const isTop = i === 0;
+                    html += `<div class="${isTop ? 'bg-gradient-to-br from-emerald-500/15 to-emerald-900/20 border-emerald-500/20' : 'glass-card'} border rounded-xl p-2.5 text-center">
+                        <span class="block font-black text-xl ${isTop ? 'text-emerald-400' : 'text-white'}">${sc}</span>
+                        <span class="text-[10px] ${isTop ? 'text-emerald-300' : 'text-slate-400'}">${(pr*100).toFixed(1)}%</span>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // ─── CLEAN SHEET + CORNERS + HANDICAP ───
+            const cs = sm.clean_sheet || {};
+            const corners = sm.expected_corners || {};
+            const ah = sm.asian_handicap || {};
+            if (Object.keys(cs).length || Object.keys(corners).length || Object.keys(ah).length) {
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">📋 Mercados Especiales</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">`;
+                if (cs.home !== undefined) {
+                    html += `<div class="glass-card rounded-xl p-3 text-center"><div class="text-[10px] text-slate-500 mb-1">Clean Sheet ${d.home_team?.short || 'Local'}</div><div class="text-xl font-black text-white">${(cs.home*100).toFixed(0)}%</div></div>`;
+                    html += `<div class="glass-card rounded-xl p-3 text-center"><div class="text-[10px] text-slate-500 mb-1">Clean Sheet ${d.away_team?.short || 'Visita'}</div><div class="text-xl font-black text-white">${(cs.away*100).toFixed(0)}%</div></div>`;
+                }
+                if (ah.line !== undefined) {
+                    html += `<div class="glass-card rounded-xl p-3 text-center"><div class="text-[10px] text-slate-500 mb-1">Handicap Asiático</div><div class="text-xl font-black text-indigo-400">${ah.line > 0 ? '-' : '+'}${Math.abs(ah.line)}</div></div>`;
+                }
+                if (corners.total) {
+                    html += `<div class="glass-card rounded-xl p-3 text-center"><div class="text-[10px] text-slate-500 mb-1">Córners Total</div><div class="text-xl font-black text-amber-400">${corners.total}</div></div>`;
+                }
+                html += '</div>';
+            }
+
+            // ─── LIVE STATS ───
+            const ls = d.live_stats;
+            if (ls) {
+                const h = ls.home, a = ls.away;
+                const statRows = [
+                    ['Tiros', h.shots, a.shots],
+                    ['A Puerta', h.shots_on_target, a.shots_on_target],
+                    ['xG', h.xG, a.xG],
+                    ['Corners', h.corner_kicks, a.corner_kicks],
+                    ['Faltas', h.fouls, a.fouls],
+                    ['Salvadas', h.saves, a.saves],
+                    ['Intercepciones', h.interceptions, a.interceptions],
+                    ['Recuperaciones', h.recoveries, a.recoveries],
+                ];
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">📡 Estadísticas en Vivo <span class="text-emerald-400">(${ls.game_time || ''})</span></h4>
+                <div class="glass-card rounded-xl p-4 mb-6">
+                    <div class="space-y-3">`;
+                statRows.forEach(([label, hv, av]) => {
+                    const total = (parseFloat(hv) || 0) + (parseFloat(av) || 0);
+                    const hPct = total > 0 ? ((parseFloat(hv) || 0) / total * 100) : 50;
+                    html += `<div>
+                        <div class="flex justify-between text-xs mb-1"><span class="text-white font-medium">${hv}</span><span class="text-slate-500">${label}</span><span class="text-white font-medium">${av}</span></div>
+                        <div class="flex gap-0.5 h-1.5">
+                            <div class="stat-bar bg-indigo-500 rounded-l-full" style="width:${hPct}%"></div>
+                            <div class="stat-bar bg-purple-500 rounded-r-full" style="width:${100-hPct}%"></div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div></div>';
+            }
+
+            // ─── EXACT GOALS DISTRIBUTION ───
+            const eg = sm.exact_goals || mk.exact_goals || {};
+            if (Object.keys(eg).length) {
+                html += `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">⚽ Distribución Total de Goles</h4>
+                <div class="glass-card rounded-xl p-4 mb-6">
+                    <div class="flex items-end justify-between gap-1 h-24">`;
+                const maxP = Math.max(...Object.values(eg));
+                for (let g = 0; g <= 6; g++) {
+                    const pct = eg[String(g)] || 0;
+                    const barH = maxP > 0 ? (pct / maxP * 100) : 0;
+                    html += `<div class="flex-1 flex flex-col items-center gap-1">
+                        <span class="text-[9px] text-slate-400">${(pct*100).toFixed(0)}%</span>
+                        <div class="w-full bg-gradient-to-t from-indigo-600 to-purple-500 rounded-t" style="height:${barH}%"></div>
+                        <span class="text-[10px] text-slate-500 font-medium">${g}${g===6?'+':''}</span>
+                    </div>`;
+                }
+                html += '</div></div>';
             }
 
             document.getElementById('modal-body').innerHTML = html;
         }
-
     </script>
 </body>
 </html>

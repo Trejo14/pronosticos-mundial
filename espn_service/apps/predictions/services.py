@@ -934,8 +934,9 @@ class PredictionService:
                         "home_strength": pred.home_strength,
                         "away_strength": pred.away_strength,
                         "confidence": pred.confidence,
+                        "model_agreement": pred.model_agreement,
                     }
-                    # Build special markets from expected goals
+                    # Build comprehensive markets from expected goals
                     import math
                     def _pois(k, lam):
                         if lam <= 0: return 1.0 if k == 0 else 0.0
@@ -943,31 +944,124 @@ class PredictionService:
 
                     xg_h = pred.expected_goals_home
                     xg_a = pred.expected_goals_away
+
+                    # Precompute Poisson grid
+                    grid = {}
+                    for i in range(10):
+                        for j in range(10):
+                            grid[(i, j)] = _pois(i, xg_h) * _pois(j, xg_a)
+                            # Dixon-Coles correction for low scores
+                            if i <= 1 and j <= 1:
+                                if i == 0 and j == 0: grid[(i, j)] *= max(0, 1 - xg_h * xg_a * 0.15)
+                                elif i == 1 and j == 0: grid[(i, j)] *= (1 + xg_a * 0.15)
+                                elif i == 0 and j == 1: grid[(i, j)] *= (1 + xg_h * 0.15)
+                                elif i == 1 and j == 1: grid[(i, j)] *= max(0, 1 - 0.15)
+
+                    # Exact scores
                     exact_scores = []
-                    for i in range(5):
-                        for j in range(5):
-                            prob = _pois(i, xg_h) * _pois(j, xg_a)
-                            if i == 0 and j == 0: prob *= max(0, 1 - xg_h * xg_a * 0.15)
-                            elif i == 1 and j == 0: prob *= (1 + xg_a * 0.15)
-                            elif i == 0 and j == 1: prob *= (1 + xg_h * 0.15)
-                            elif i == 1 and j == 1: prob *= max(0, 1 - 0.15)
-                            if prob > 0.01:
-                                exact_scores.append({"score": f"{i}-{j}", "probability": round(prob, 4)})
+                    for (i, j), prob in grid.items():
+                        if prob > 0.005:
+                            exact_scores.append({"score": f"{i}-{j}", "probability": round(prob, 4)})
                     exact_scores.sort(key=lambda x: x["probability"], reverse=True)
 
+                    # Over/Under multi-line
+                    over_under = {}
+                    for line in [0.5, 1.5, 2.5, 3.5, 4.5]:
+                        over = round(sum(p for (i, j), p in grid.items() if i + j > line), 4)
+                        over_under[f"over_{str(line).replace('.','_')}"] = over
+                        over_under[f"under_{str(line).replace('.','_')}"] = round(1 - over, 4)
+
+                    # BTTS (Both Teams To Score)
+                    btts_yes = round(sum(p for (i, j), p in grid.items() if i >= 1 and j >= 1), 4)
+                    btts_no = round(1 - btts_yes, 4)
+
+                    # Double chance
+                    double_chance = {
+                        "1X": round(pred.home_win + pred.draw, 4),
+                        "12": round(pred.home_win + pred.away_win, 4),
+                        "X2": round(pred.draw + pred.away_win, 4),
+                    }
+
+                    # Total goals distribution
+                    exact_goals = {}
+                    for total_g in range(7):
+                        p = sum(pr for (i, j), pr in grid.items() if i + j == total_g)
+                        if p > 0.005:
+                            exact_goals[str(total_g)] = round(p, 4)
+
+                    # Halftime predictions (45% of goals in 1st half)
+                    ht_xg_h, ht_xg_a = xg_h * 0.45, xg_a * 0.45
+                    ht_draw = sum(_pois(k, ht_xg_h) * _pois(k, ht_xg_a) for k in range(5))
+                    ht_home = sum(
+                        _pois(i, ht_xg_h) * _pois(j, ht_xg_a)
+                        for i in range(6) for j in range(6) if i > j
+                    )
+                    ht_away = 1 - ht_draw - ht_home
+                    ht_over_05 = 1 - (_pois(0, ht_xg_h) * _pois(0, ht_xg_a))
+
+                    # Asian handicap
                     spread = xg_h - xg_a
+
+                    # Corners estimate
                     corners_h = round(max(3.5, xg_h * 3.5), 1)
                     corners_a = round(max(3.5, xg_a * 3.5), 1)
 
+                    # Clean sheet probabilities
+                    cs_home = round(_pois(0, xg_a), 4)  # away scores 0
+                    cs_away = round(_pois(0, xg_h), 4)  # home scores 0
+
                     d["special_markets"] = {
-                        "exact_scores": exact_scores[:5],
+                        "exact_scores": exact_scores[:10],
+                        "over_under": over_under,
+                        "btts": {"yes": btts_yes, "no": btts_no},
+                        "double_chance": double_chance,
+                        "exact_goals": exact_goals,
+                        "halftime": {
+                            "home": round(ht_home, 4),
+                            "draw": round(ht_draw, 4),
+                            "away": round(max(ht_away, 0), 4),
+                            "over_0_5": round(ht_over_05, 4),
+                        },
                         "asian_handicap": {"line": round(spread * 2) / 2},
                         "expected_corners": {
                             "home": corners_h,
                             "away": corners_a,
                             "total": corners_h + corners_a,
                         },
+                        "clean_sheet": {"home": cs_home, "away": cs_away},
                     }
+
+            # Live stats enrichment for IN_PLAY matches
+            if m.status == "IN_PLAY":
+                try:
+                    from clients.scores365_client import Scores365Client
+                    s365 = Scores365Client()
+                    s365_game_id = s365.find_game_by_teams(
+                        m.home_team_name or "", m.away_team_name or ""
+                    )
+                    if s365_game_id:
+                        stats = s365.get_game_stats(s365_game_id)
+                        if stats:
+                            d["live_stats"] = {
+                                "home": stats.home_stats(),
+                                "away": stats.away_stats(),
+                                "game_time": stats.game_time_display,
+                                "game_minute": int(stats.game_time) if stats.game_time >= 0 else None,
+                            }
+                            xg_data = []
+                            for ce in stats.chart_events:
+                                xg_data.append({
+                                    "xg": round(ce.xg, 2),
+                                    "xgot": round(ce.xgot, 2),
+                                    "time": ce.time,
+                                    "team": "home" if ce.competitor_num == 1 else "away",
+                                    "is_goal": ce.outcome_id == 0,
+                                })
+                            if xg_data:
+                                d["xg_chart"] = xg_data
+                except Exception as exc:
+                    logger.debug("live_stats_enrich_failed", error=str(exc))
+
             if m.status in ("IN_PLAY", "FINISHED") and (m.goals or m.bookings or m.substitutions):
                 d["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
             return d
