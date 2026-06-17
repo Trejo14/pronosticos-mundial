@@ -561,7 +561,7 @@ class PredictionService:
         away_def = self._team_att_def_cache.get(sid_away, {}).get("defensive", 1.0)
         home_info = TeamInfo(espn_id=sid_home, name=m.home_team_name, abbreviation=m.home_team_tla or m.home_team_name[:3].upper(), elo=home_elo, attacking=home_att, defensive=home_def)
         away_info = TeamInfo(espn_id=sid_away, name=m.away_team_name, abbreviation=m.away_team_tla or m.away_team_name[:3].upper(), elo=away_elo, attacking=away_att, defensive=away_def)
-        pred = engine_predict_match(home_info, away_info, espn_win_probs=None)
+        pred = predict_match(home_info, away_info, espn_win_probs=None)
         result["prediction"] = {
             "home_win": pred.home_win,
             "draw": pred.draw,
