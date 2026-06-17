@@ -674,7 +674,8 @@ showLoading(el);
 try {
 if (!wcData) wcData = await apiGet(BASE + '/worldcup/');
 const all = flatMatches(wcData);
-const upcoming = all.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+    const upcoming = all.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+upcoming.sort((a,b) => (a.utc_date||'').localeCompare(b.utc_date||''));
 renderValueBets(el, upcoming);
 } catch(e) { showError(el, e.message); }
 }
