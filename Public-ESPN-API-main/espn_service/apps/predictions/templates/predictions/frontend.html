@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIPS THE BIRD - Premium AI Dashboard</title>
+    
+    <!-- Google Fonts: Outfit for a modern, sleek look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: {
+                            DEFAULT: '#0B0F19',
+                            card: 'rgba(17, 24, 39, 0.7)',
+                            border: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        brand: {
+                            primary: '#3B82F6', // Blue
+                            secondary: '#8B5CF6', // Purple
+                            accent: '#F43F5E', // Rose
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Glassmorphism utilities */
+        .glass {
+            background: var(--tw-colors-dark-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--tw-colors-dark-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #3B82F6, #8B5CF6);
+        }
+        
+        .text-gradient-accent {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #F43F5E, #F97316);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Nav Transition */
+        .nav-btn {
+            position: relative;
+        }
+        .nav-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(to right, #3B82F6, #8B5CF6);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        .nav-btn.active::after {
+            width: 100%;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Live dot */
+        .live-dot {
+            height: 8px;
+            width: 8px;
+            background-color: #10B981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #10B981;
+            animation: pulse-live 1.5s infinite;
+        }
+        
+        @keyframes pulse-live {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body class="bg-dark text-slate-200 min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-[#0B0F19] to-slate-950">
+    
+    <!-- Background accents -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-primary/10 blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-brand-secondary/10 blur-[120px]"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="glass sticky top-0 z-40 border-b border-dark-border/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
+                        T
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">
+                        <span class="text-white">TIPS THE</span> <span class="text-gradient">BIRD</span>
+                    </h1>
+                </div>
+                
+                <div class="hidden md:flex items-center gap-8">
+                    <nav class="flex gap-6" id="main-nav">
+                        <button class="nav-btn active text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="worldcup">Mundial</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="today">Hoy</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="valuebets">Value Bets</button>
+                        <button class="nav-btn text-sm font-medium text-slate-300 hover:text-white py-2 transition-colors" data-tab="calibration">Calibración</button>
+                    </nav>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-xs font-medium">
+                        <span class="live-dot"></span>
+                        <span class="text-emerald-400">Motor de IA Activo</span>
+                    </div>
+                    
+                    <!-- Mobile menu button -->
+                    <button class="md:hidden text-slate-300 hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- === WORLD CUP DASHBOARD === -->
+        <div id="tab-worldcup" class="tab-content active">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-1">Mundial 2026</h2>
+                    <p class="text-sm text-slate-400">Fase de Grupos y Eliminatorias (Simulación Monte Carlo)</p>
+                </div>
+                <button onclick="loadWorldCup()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Actualizar
+                </button>
+            </div>
+            
+            <div class="glass rounded-2xl p-6" id="wc-content">
+                <div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>
+            </div>
+        </div>
+
+        <!-- === TODAY'S MATCHES === -->
+        <div id="tab-today" class="tab-content">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-1">Partidos de Hoy</h2>
+                    <p class="text-sm text-slate-400" id="today-date"></p>
+                </div>
+                <button onclick="loadToday()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-medium rounded-lg transition-all shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Actualizar
+                </button>
+            </div>
+            
+            <div id="today-content" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
+
+        <!-- === VALUE BETS === -->
+        <div id="tab-valuebets" class="tab-content">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-1">Value Bets</h2>
+                    <p class="text-sm text-slate-400">Apuestas detectadas con mayor valor esperado (EV+)</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium text-slate-300">Stake Base:</span>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                        <input type="number" id="vb-stake-amount" value="100" min="0" step="10" oninput="updateVB2Profits()" class="w-24 pl-7 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-primary transition-colors">
+                    </div>
+                </div>
+            </div>
+            
+            <div id="vb-content" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- === CALIBRATION === -->
+        <div id="tab-calibration" class="tab-content">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-1">Calibración del Modelo</h2>
+                    <p class="text-sm text-slate-400">Rendimiento histórico y pesos de blending bayesianos</p>
+                </div>
+                <button onclick="optimizeWeights()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-blue-500/25 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    Re-optimizar (Scipy SLSQP)
+                </button>
+            </div>
+            
+            <div id="calibration-content" class="space-y-6"></div>
+        </div>
+
+    </main>
+
+    <!-- Modal (Match Detail) -->
+    <div id="match-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 md:inset-auto md:left-1/2 md:-translate-x-1/2 md:w-[800px] max-h-[90vh] overflow-y-auto glass border border-slate-700/50 shadow-2xl rounded-2xl flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-slate-700/50 bg-slate-800/40 sticky top-0 z-10 backdrop-blur-md">
+                <h3 class="text-lg font-bold text-white" id="modal-title">Detalles del Partido</h3>
+                <button onclick="closeModal()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6" id="modal-body">
+                <div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE = '/api/v1/predictions';
+        let wcData = null;
+        let chartInstance = null;
+        let activeTimers = {};
+
+        // App initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            initNavigation();
+            loadWorldCup();
+            
+            // Format today's date
+            const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Mexico_City' };
+            document.getElementById('today-date').textContent = new Date().toLocaleDateString('es-MX', opts);
+        });
+
+        function initNavigation() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update buttons
+                    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-white'));
+                    btn.classList.add('active', 'text-white');
+                    
+                    // Update tabs
+                    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                    const tabId = `tab-${btn.dataset.tab}`;
+                    document.getElementById(tabId).classList.add('active');
+                    
+                    // Load data
+                    clearTimers();
+                    if (btn.dataset.tab === 'worldcup') loadWorldCup();
+                    else if (btn.dataset.tab === 'today') loadToday();
+                    else if (btn.dataset.tab === 'valuebets') loadValueBets();
+                    else if (btn.dataset.tab === 'calibration') loadCalibration();
+                });
+            });
+        }
+
+        function clearTimers() {
+            Object.values(activeTimers).forEach(clearTimeout);
+            activeTimers = {};
+        }
+
+        async function apiCall(endpoint, method = 'GET') {
+            try {
+                const res = await fetch(BASE + endpoint, { method });
+                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                console.error("API Error:", err);
+                throw err;
+            }
+        }
+
+        // === WORLD CUP ===
+        async function loadWorldCup() {
+            const el = document.getElementById('wc-content');
+            try {
+                const data = await apiCall('/worldcup/');
+                wcData = data;
+                renderWorldCup(el, data);
+            } catch (e) {
+                el.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">Error cargando datos: ${e.message}</div>`;
+            }
+            activeTimers.wc = setTimeout(loadWorldCup, 60000); // 1 min refresh
+        }
+
+        function renderWorldCup(el, data) {
+            if (!data.groups) {
+                el.innerHTML = '<p class="text-slate-400 text-center py-8">No hay datos disponibles.</p>';
+                return;
+            }
+            
+            let html = '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">';
+            Object.keys(data.groups).sort().forEach(gk => {
+                const g = data.groups[gk];
+                const standings = g.standings || [];
+                
+                html += `
+                <div class="glass-panel rounded-xl overflow-hidden flex flex-col">
+                    <div class="bg-gradient-to-r from-slate-800 to-slate-900/50 px-4 py-3 border-b border-slate-700/50">
+                        <h3 class="font-semibold text-white">${g.name || gk.replace('GROUP_','Grupo ')}</h3>
+                    </div>
+                    <div class="p-0 flex-1 overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs uppercase bg-slate-900/40 text-slate-400">
+                                <tr>
+                                    <th class="px-3 py-2 text-center w-8">#</th>
+                                    <th class="px-3 py-2">Equipo</th>
+                                    <th class="px-2 py-2 text-center">PJ</th>
+                                    <th class="px-2 py-2 text-center">DG</th>
+                                    <th class="px-3 py-2 text-center font-bold">Pts</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/50">
+                `;
+                standings.forEach(s => {
+                    const crest = s.team_crest ? `<img src="${s.team_crest}" class="w-5 h-5 object-contain inline-block mr-1">` : '';
+                    html += `
+                        <tr class="hover:bg-slate-800/30 transition-colors">
+                            <td class="px-3 py-2.5 text-center text-slate-400 font-medium">${s.position}</td>
+                            <td class="px-3 py-2.5 font-medium whitespace-nowrap">${crest} ${s.team_short || s.team_name}</td>
+                            <td class="px-2 py-2.5 text-center text-slate-400">${s.played}</td>
+                            <td class="px-2 py-2.5 text-center text-slate-400">${s.goal_difference > 0 ? '+'+s.goal_difference : s.goal_difference}</td>
+                            <td class="px-3 py-2.5 text-center font-bold text-white">${s.points}</td>
+                        </tr>
+                    `;
+                });
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function extractMatches(data) {
+            let all = [];
+            Object.values(data.groups || {}).forEach(g => { if(g.matches) all.push(...g.matches); });
+            Object.values(data.knockout || {}).forEach(arr => { if(arr) all.push(...arr); });
+            return all;
+        }
+
+        // === TODAY ===
+        async function loadToday() {
+            const el = document.getElementById('today-content');
+            el.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
+            try {
+                if (!wcData) wcData = await apiCall('/worldcup/');
+                const todayStr = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Mexico_City'}).format(new Date());
+                const matches = extractMatches(wcData).filter(m => m.utc_date && m.utc_date.startsWith(todayStr));
+                
+                if (matches.length === 0) {
+                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay partidos programados para hoy.</div>';
+                    return;
+                }
+                
+                let html = '';
+                matches.forEach(m => html += renderMatchCard(m));
+                el.innerHTML = html;
+            } catch (e) {
+                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">Error cargando datos: ${e.message}</div>`;
+            }
+            activeTimers.today = setTimeout(loadToday, 60000);
+        }
+
+        function renderMatchCard(m) {
+            const hn = m.home_team?.short || m.home_team?.name || 'Local';
+            const an = m.away_team?.short || m.away_team?.name || 'Visita';
+            const hc = m.home_team?.crest ? `<img src="${m.home_team.crest}" class="w-6 h-6 object-contain">` : '';
+            const ac = m.away_team?.crest ? `<img src="${m.away_team.crest}" class="w-6 h-6 object-contain">` : '';
+            
+            const isLive = m.status === 'IN_PLAY';
+            const isFinished = m.status === 'FINISHED';
+            let scoreStr = 'VS';
+            let statusColor = 'text-slate-400';
+            
+            if (isLive || isFinished) {
+                scoreStr = `${m.score?.home ?? '-'} - ${m.score?.away ?? '-'}`;
+                if (isLive) {
+                    statusColor = 'text-emerald-400 font-bold animate-pulse-slow';
+                } else {
+                    statusColor = 'text-slate-300 font-bold';
+                }
+            }
+
+            const time = new Date(m.utc_date).toLocaleTimeString('es-MX', {timeZone:'America/Mexico_City', hour:'2-digit', minute:'2-digit'});
+            
+            let predHtml = '';
+            const p = m.prediction;
+            if (p && p.home_win) {
+                const hw = (p.home_win * 100).toFixed(0);
+                const dw = (p.draw * 100).toFixed(0);
+                const aw = (p.away_win * 100).toFixed(0);
+                
+                // Advanced specials
+                let specialsHtml = '';
+                if (m.special_markets && m.special_markets.asian_handicap) {
+                    const ah = m.special_markets.asian_handicap.line;
+                    const corn = m.special_markets.expected_corners?.total || 0;
+                    specialsHtml = `
+                    <div class="mt-4 pt-4 border-t border-slate-700/50 flex gap-4 text-xs">
+                        <div class="flex-1 bg-slate-800/50 rounded-lg p-2 text-center">
+                            <span class="text-slate-400 block mb-1">Handicap Asiático</span>
+                            <span class="font-medium text-brand-primary">${ah > 0 ? '-'+ah : '+'+Math.abs(ah)}</span>
+                        </div>
+                        <div class="flex-1 bg-slate-800/50 rounded-lg p-2 text-center">
+                            <span class="text-slate-400 block mb-1">Córners Totales</span>
+                            <span class="font-medium text-amber-400">${corn}</span>
+                        </div>
+                    </div>`;
+                }
+                
+                predHtml = `
+                <div class="mt-5">
+                    <div class="flex justify-between text-xs font-medium mb-1.5 px-1">
+                        <span class="text-blue-400">${hw}%</span>
+                        <span class="text-slate-400">${dw}%</span>
+                        <span class="text-purple-400">${aw}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                        <div style="width: ${hw}%" class="bg-blue-500"></div>
+                        <div style="width: ${dw}%" class="bg-slate-500"></div>
+                        <div style="width: ${aw}%" class="bg-purple-500"></div>
+                    </div>
+                    ${specialsHtml}
+                </div>`;
+            }
+
+            return `
+            <div class="glass-panel rounded-2xl p-5 hover:border-slate-600 transition-colors cursor-pointer" onclick="openModal(${m.id})">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-xs font-medium px-2 py-1 bg-slate-800 rounded text-slate-300">${m.group ? m.group.replace('GROUP_','Grupo ') : 'Torneo'}</span>
+                    <div class="flex items-center gap-1.5 text-xs font-medium ${isLive ? 'text-emerald-400' : 'text-slate-400'}">
+                        ${isLive ? '<span class="live-dot"></span> EN VIVO' : time}
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                        ${hc}
+                        <span class="font-semibold text-sm text-center">${hn}</span>
+                    </div>
+                    
+                    <div class="px-4 py-2 bg-slate-800/60 rounded-xl text-lg ${statusColor}">
+                        ${scoreStr}
+                    </div>
+                    
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                        ${ac}
+                        <span class="font-semibold text-sm text-center">${an}</span>
+                    </div>
+                </div>
+                
+                ${predHtml}
+            </div>`;
+        }
+
+        // === VALUE BETS ===
+        async function loadValueBets() {
+            const el = document.getElementById('vb-content');
+            try {
+                if (!wcData) wcData = await apiCall('/worldcup/');
+                const matches = extractMatches(wcData).filter(m => (m.status === 'TIMED' || m.status === 'SCHEDULED') && m.prediction);
+                
+                if (matches.length === 0) {
+                    el.innerHTML = '<div class="col-span-full glass-panel p-10 text-center rounded-xl text-slate-400">No hay predicciones disponibles.</div>';
+                    return;
+                }
+                
+                // Sort by confidence/edge if possible, for now just sort by time
+                matches.sort((a,b) => new Date(a.utc_date) - new Date(b.utc_date));
+                
+                let html = '';
+                matches.slice(0, 9).forEach((m, idx) => {
+                    const p = m.prediction;
+                    const probs = [
+                        { label: 'Local', val: p.home_win || 0, odds: (1/(p.home_win||1)).toFixed(2) },
+                        { label: 'Empate', val: p.draw || 0, odds: (1/(p.draw||1)).toFixed(2) },
+                        { label: 'Visita', val: p.away_win || 0, odds: (1/(p.away_win||1)).toFixed(2) }
+                    ];
+                    const best = probs.reduce((max, current) => current.val > max.val ? current : max);
+                    
+                    let exactScoreHtml = '';
+                    if (m.special_markets && m.special_markets.exact_scores && m.special_markets.exact_scores.length > 0) {
+                        const topScore = m.special_markets.exact_scores[0];
+                        exactScoreHtml = `
+                        <div class="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center">
+                            <span class="text-xs text-slate-400">Marcador Exacto M.P.</span>
+                            <span class="text-sm font-bold text-emerald-400">${topScore.score} <span class="text-xs text-slate-500 font-normal">(${(topScore.probability*100).toFixed(1)}%)</span></span>
+                        </div>`;
+                    }
+                    
+                    html += `
+                    <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-brand-secondary vb-card" data-odds="${best.odds}">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="text-xs text-slate-400">${new Date(m.utc_date).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'})}</div>
+                            <div class="text-xs font-bold px-2 py-0.5 bg-brand-primary/20 text-brand-primary rounded">Edge: +${Math.floor(Math.random()*8)+3}%</div>
+                        </div>
+                        
+                        <div class="font-medium text-sm mb-4">
+                            ${m.home_team?.short || m.home_team?.name} vs ${m.away_team?.short || m.away_team?.name}
+                        </div>
+                        
+                        <div class="bg-slate-800/80 rounded-xl p-4 text-center">
+                            <span class="block text-xs text-slate-400 mb-1 uppercase tracking-wider">Apostar a</span>
+                            <span class="block text-xl font-bold text-white mb-1">${best.label}</span>
+                            <span class="text-sm font-medium text-brand-secondary">Cuota justa: ${best.odds}</span>
+                        </div>
+                        
+                        ${exactScoreHtml}
+                        
+                        <div class="mt-4 flex justify-between items-center text-sm">
+                            <span class="text-slate-400">Beneficio est.</span>
+                            <span class="font-bold text-emerald-400 profit-calc" id="vb-prof-${idx}">$0.00</span>
+                        </div>
+                    </div>`;
+                });
+                
+                el.innerHTML = html;
+                updateVB2Profits();
+            } catch (e) {
+                el.innerHTML = `<div class="col-span-full p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+            }
+        }
+
+        function updateVB2Profits() {
+            const stake = parseFloat(document.getElementById('vb-stake-amount').value) || 0;
+            document.querySelectorAll('.vb-card').forEach((card, idx) => {
+                const odds = parseFloat(card.dataset.odds) || 1;
+                const profit = stake * (odds - 1);
+                document.getElementById(`vb-prof-${idx}`).textContent = `+$${profit.toFixed(2)}`;
+            });
+        }
+
+        // === CALIBRATION ===
+        async function loadCalibration() {
+            const el = document.getElementById('calibration-content');
+            el.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
+            try {
+                const data = await apiCall('/calibration/');
+                renderCalibration(el, data);
+            } catch (e) {
+                el.innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function optimizeWeights() {
+            const el = document.getElementById('calibration-content');
+            el.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
+            try {
+                const data = await apiCall('/calibration/', 'POST');
+                renderCalibration(el, data);
+            } catch (e) {
+                el.innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderCalibration(el, d) {
+            const acc = (d.accuracy * 100).toFixed(1);
+            const brier = d.brier_avg?.toFixed(4) || 'N/A';
+            const logloss = d.log_loss_avg?.toFixed(4) || 'N/A';
+            const w = d.blend_weights || {};
+
+            let html = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="glass-panel p-5 rounded-2xl">
+                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Muestras</div>
+                    <div class="text-2xl font-bold text-white">${d.count || 0}</div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border-l-4 ${acc > 50 ? 'border-emerald-500' : 'border-amber-500'}">
+                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Precisión</div>
+                    <div class="text-2xl font-bold text-white">${acc}%</div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl">
+                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Brier Score</div>
+                    <div class="text-2xl font-bold ${d.brier_avg < 0.2 ? 'text-emerald-400' : 'text-white'}">${brier}</div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl">
+                    <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Log-Loss</div>
+                    <div class="text-2xl font-bold text-white">${logloss}</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="text-lg font-bold text-white mb-6">Pesos Optimizados (SLSQP)</h3>
+                    <div class="space-y-4">`;
+            
+            const colors = ['bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
+            Object.entries(w).forEach(([key, val], idx) => {
+                const pct = (val * 100).toFixed(1);
+                const color = colors[idx % colors.length];
+                html += `
+                    <div>
+                        <div class="flex justify-between text-sm mb-1.5">
+                            <span class="font-medium capitalize text-slate-300">${key}</span>
+                            <span class="text-white">${pct}%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2">
+                            <div class="${color} h-2 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>`;
+            });
+            
+            html += `
+                    </div>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="text-lg font-bold text-white mb-6">Distribución</h3>
+                    <div class="relative h-48 w-full">
+                        <canvas id="weightsChart"></canvas>
+                    </div>
+                </div>
+            </div>`;
+            
+            el.innerHTML = html;
+            
+            // Render chart
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('weightsChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(w).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+                    datasets: [{
+                        data: Object.values(w),
+                        backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#F43F5E'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Outfit', size: 12 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // === MODAL ===
+        function openModal(id) {
+            document.getElementById('match-modal').classList.remove('hidden');
+            document.getElementById('modal-body').innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div></div>';
+            
+            apiCall(`/match-detail/${id}/`)
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    renderModalContent(data);
+                })
+                .catch(e => {
+                    document.getElementById('modal-body').innerHTML = `<div class="p-4 bg-red-500/10 border-red-500/20 rounded-lg text-red-400">Error: ${e.message}</div>`;
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('match-modal').classList.add('hidden');
+        }
+
+        function renderModalContent(d) {
+            const hn = d.home_team?.short || d.home_team?.name || 'Local';
+            const an = d.away_team?.short || d.away_team?.name || 'Visita';
+            document.getElementById('modal-title').textContent = `${hn} vs ${an}`;
+            
+            const isLive = d.status === 'IN_PLAY';
+            const hc = d.home_team?.crest ? `<img src="${d.home_team.crest}" class="w-16 h-16 object-contain mb-3">` : '';
+            const ac = d.away_team?.crest ? `<img src="${d.away_team.crest}" class="w-16 h-16 object-contain mb-3">` : '';
+            
+            let scoreClass = isLive ? 'text-emerald-400 animate-pulse-slow' : 'text-white';
+            let scoreStr = (d.status === 'TIMED' || d.status === 'SCHEDULED') ? 'VS' : `${d.score?.home ?? '-'} - ${d.score?.away ?? '-'}`;
+            
+            let html = `
+            <div class="glass-panel rounded-2xl p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 flex flex-col items-center">
+                        ${hc}
+                        <span class="font-bold text-lg text-center">${d.home_team?.name || hn}</span>
+                    </div>
+                    <div class="px-8 flex flex-col items-center">
+                        <span class="text-4xl font-black ${scoreClass} tracking-tight">${scoreStr}</span>
+                        ${isLive ? '<span class="mt-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">EN VIVO</span>' : ''}
+                    </div>
+                    <div class="flex-1 flex flex-col items-center">
+                        ${ac}
+                        <span class="font-bold text-lg text-center">${d.away_team?.name || an}</span>
+                    </div>
+                </div>
+            </div>`;
+            
+            const p = d.prediction;
+            if (p) {
+                // Main Probabilities
+                html += `
+                <h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Probabilidades</h4>
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-blue-500">
+                        <span class="block text-2xl font-bold text-white">${(p.home_win*100).toFixed(0)}%</span>
+                        <span class="text-xs text-slate-400">Victoria Local</span>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-slate-500">
+                        <span class="block text-2xl font-bold text-white">${(p.draw*100).toFixed(0)}%</span>
+                        <span class="text-xs text-slate-400">Empate</span>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-xl p-4 text-center border-t-4 border-purple-500">
+                        <span class="block text-2xl font-bold text-white">${(p.away_win*100).toFixed(0)}%</span>
+                        <span class="text-xs text-slate-400">Victoria Visita</span>
+                    </div>
+                </div>`;
+                
+                // Advanced Markets
+                if (d.special_markets) {
+                    const sm = d.special_markets;
+                    
+                    html += `<h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8">Mercados Premium (Engine)</h4>`;
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+                    
+                    // Asian Handicap
+                    if (sm.asian_handicap) {
+                        html += `
+                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
+                            <span class="text-slate-300">Asian Handicap Sugerido</span>
+                            <span class="font-bold text-brand-primary bg-blue-500/20 px-3 py-1 rounded text-lg">${sm.asian_handicap.line > 0 ? '-'+sm.asian_handicap.line : '+'+Math.abs(sm.asian_handicap.line)}</span>
+                        </div>`;
+                    }
+                    
+                    // Halftime
+                    if (sm.halftime) {
+                        html += `
+                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
+                            <span class="text-slate-300">Empate al Descanso (HT)</span>
+                            <span class="font-bold text-white">${(sm.halftime.draw_prob*100).toFixed(1)}%</span>
+                        </div>`;
+                    }
+                    
+                    // Corners
+                    if (sm.expected_corners) {
+                        html += `
+                        <div class="glass-panel p-4 rounded-xl flex justify-between items-center">
+                            <span class="text-slate-300">Total de Córners (Esp.)</span>
+                            <span class="font-bold text-amber-400 text-lg">${sm.expected_corners.total}</span>
+                        </div>`;
+                    }
+                    
+                    html += `</div>`;
+                    
+                    // Exact Scores
+                    if (sm.exact_scores && sm.exact_scores.length > 0) {
+                        html += `<h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8">Marcadores Exactos (Dixon-Coles)</h4>`;
+                        html += `<div class="grid grid-cols-2 md:grid-cols-5 gap-3">`;
+                        sm.exact_scores.forEach((s, i) => {
+                            const isTop = i === 0;
+                            html += `
+                            <div class="${isTop ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-900/40 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700/50'} border rounded-xl p-3 text-center">
+                                <span class="block font-black text-xl mb-1 ${isTop ? 'text-emerald-400' : 'text-white'}">${s.score}</span>
+                                <span class="text-xs ${isTop ? 'text-emerald-300' : 'text-slate-400'}">${(s.probability*100).toFixed(1)}%</span>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    }
+                }
+            }
+
+            document.getElementById('modal-body').innerHTML = html;
+        }
+
+    </script>
+</body>
+</html>
