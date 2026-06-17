@@ -1000,8 +1000,8 @@ html += '<div class="event-item substitution"><span class="minute">'+s.minute+'\
 html += '</div>';
 }
 
-// Prediction & Markets
-if (isScheduled && p.home_win != null) {
+// Prediction & Markets — show for ALL matches with data
+if (p.home_win != null) {
 const hw = p.home_win || 0;
 const dw = p.draw || 0;
 const aw = p.away_win || 0;
