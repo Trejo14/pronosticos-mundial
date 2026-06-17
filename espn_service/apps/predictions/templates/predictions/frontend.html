@@ -1012,92 +1012,7 @@ html += '<div class="event-item substitution"><span class="minute">'+s.minute+'\
 html += '</div>';
 }
 
-// Prediction & Markets — show for ALL matches with data
-if (p.home_win != null) {
-const hw = p.home_win || 0;
-const dw = p.draw || 0;
-const aw = p.away_win || 0;
-const expH = p.expected_goals_home || 0;
-const expA = p.expected_goals_away || 0;
-const totalExp = expH + expA;
-const maxP = Math.max(hw, dw, aw);
-const bestLabel = hw === maxP ? 'Local' : dw === maxP ? 'Empate' : 'Visita';
-
-html += '<div class="detail-grid">';
-
-// Win probs
-html += '<div class="detail-card"><h4>📊 Pronóstico del Partido</h4>';
-const outcomes = [{lbl:'Local', prob:hw, color:'var(--primary)'},{lbl:'Empate', prob:dw, color:'var(--warning)'},{lbl:'Visita', prob:aw, color:'var(--info)'}];
-for (const o of outcomes) {
-const isBest = o.prob === maxP;
-html += '<div class="row"><span>'+(isBest?'🏆 ':'')+o.lbl+'</span><span class="val'+(isBest?' positive':'')+'">'+(o.prob*100).toFixed(1)+'%</span></div>';
-html += '<div class="prob-bar"><span style="width:'+(o.prob/maxP*100).toFixed(0)+'%;background:'+o.color+'"></span></div>';
-}
-html += '<div class="row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><span>Confianza</span><span class="val info">'+(p.confidence*100).toFixed(0)+'%</span></div>';
-html += '</div>';
-
-// Expected Goals + Exact Scores
-html += '<div class="detail-card"><h4>⚽ Goles Esperados</h4>';
-html += '<div class="row"><span>'+hn+'</span><span class="val">'+expH.toFixed(2)+'</span></div>';
-html += '<div class="row"><span>'+an+'</span><span class="val">'+expA.toFixed(2)+'</span></div>';
-html += '<div class="row"><span>Total</span><span class="val">'+totalExp.toFixed(2)+'</span></div>';
-if (d.exact_scores && d.exact_scores.length) {
-html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.375rem">Marcadores más probables:</div>';
-for (const s of d.exact_scores.slice(0,5)) {
-html += '<div class="row"><span>'+s.home+' - '+s.away+'</span><span class="val">'+(s.probability*100).toFixed(1)+'%</span></div>';
-}
-html += '</div>';
-}
-html += '</div>';
-
-// Markets
-if (d.markets) {
-html += '<div class="detail-card"><h4>🎯 Mercados</h4>';
-const ou = d.markets.over_under || {};
-if (ou.over_2_5 != null) {
-html += '<div class="row"><span>Over 2.5</span><span class="val '+(ou.over_2_5>0.5?'positive':'')+'">'+(ou.over_2_5*100).toFixed(0)+'%</span></div>';
-html += '<div class="row"><span>Under 2.5</span><span class="val '+(ou.under_2_5>0.5?'positive':'')+'">'+(ou.under_2_5*100).toFixed(0)+'%</span></div>';
-html += '<div class="row"><span>Over 3.5</span><span class="val">'+(ou.over_3_5*100).toFixed(0)+'%</span></div>';
-}
-const btts = d.markets.both_teams_score || {};
-if (btts.yes != null) {
-html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">';
-html += '<div class="row"><span>BTTS Sí</span><span class="val '+(btts.yes>0.5?'positive':'')+'">'+(btts.yes*100).toFixed(0)+'%</span></div>';
-html += '<div class="row"><span>BTTS No</span><span class="val '+(btts.no>0.5?'positive':'')+'">'+(btts.no*100).toFixed(0)+'%</span></div>';
-html += '</div>';
-}
-const dc = d.markets.double_chance || {};
-if (dc.home_or_draw != null) {
-html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">';
-html += '<div class="row"><span>Doble: '+hn+' o Empate</span><span class="val">'+(dc.home_or_draw*100).toFixed(0)+'%</span></div>';
-html += '<div class="row"><span>Doble: '+an+' o Empate</span><span class="val">'+(dc.draw_or_away*100).toFixed(0)+'%</span></div>';
-html += '</div>';
-}
-const eg = d.markets.exact_goals || {};
-const egKeys = Object.keys(eg);
-if (egKeys.length) {
-html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.375rem">Goles exactos:</div>';
-for (const k of egKeys) {
-html += '<div class="row"><span>'+k+' goles</span><span class="val">'+(eg[k]*100).toFixed(0)+'%</span></div>';
-}
-html += '</div>';
-}
-html += '</div>';
-}
-
-html += '</div>'; // detail-grid
-}
-
-// Specials
-html += '<div class="detail-card"><h4>🌟 Especiales</h4>';
-html += '<div class="specials-grid">';
-html += '<div class="special-item"><div class="ico">⚽</div><div class="lbl">Anotador</div><div class="val">'+(d.specials?.anytime_goalscorer||'Por definir')+'</div></div>';
-html += '<div class="special-item"><div class="ico">🟨</div><div class="lbl">Tarjetas</div><div class="val">'+(d.specials?.player_cards||'Por definir')+'</div></div>';
-html += '<div class="special-item"><div class="ico">📐</div><div class="lbl">Tiros de Esquina</div><div class="val">'+(d.specials?.corners||'Por definir')+'</div></div>';
-html += '<div class="special-item"><div class="ico">💵</div><div class="lbl">Mercado</div><div class="val">Apuestas en vivo</div></div>';
-html += '</div></div>';
-
-// Live stats
+// Live stats — shown FIRST for LIVE/FINISHED
 if (d.live_stats) {
 const ls = d.live_stats;
 const hls = ls.home || {};
@@ -1151,6 +1066,104 @@ for (const c of d.xg_chart) {
 }
 html += '</div></div>';
 }
+
+// Prediction & Markets — main content for SCHEDULED, compact for LIVE
+const showFullPrediction = !d.live_stats || isScheduled;
+const showRemainder = isLive && d.live_stats;
+if (p.home_win != null && (showFullPrediction || showRemainder)) {
+const hw = p.home_win || 0;
+const dw = p.draw || 0;
+const aw = p.away_win || 0;
+const expH = p.expected_goals_home || 0;
+const expA = p.expected_goals_away || 0;
+const totalExp = expH + expA;
+const maxP = Math.max(hw, dw, aw);
+
+if (showRemainder) {
+// Compact "lo que resta" for LIVE
+html += '<div class="detail-card" style="margin-top:1rem"><h4>⏳ Proyección Restante</h4>';
+html += '<div style="display:flex;gap:.75rem;flex-wrap:wrap">';
+html += '<div style="flex:1;min-width:120px"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.25rem">xG faltante</div><div style="font-weight:700">'+hn+' '+expH.toFixed(2)+' · '+an+' '+expA.toFixed(2)+'</div></div>';
+html += '<div style="flex:1;min-width:120px"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.25rem">Confianza</div><div style="font-weight:700">'+(p.confidence*100).toFixed(0)+'%</div></div>';
+if (d.markets?.over_under?.over_2_5 != null) {
+html += '<div style="flex:1;min-width:120px"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.25rem">Over 2.5</div><div style="font-weight:700">'+(d.markets.over_under.over_2_5*100).toFixed(0)+'%</div></div>';
+}
+if (d.markets?.both_teams_score?.yes != null) {
+html += '<div style="flex:1;min-width:120px"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.25rem">BTTS Sí</div><div style="font-weight:700">'+(d.markets.both_teams_score.yes*100).toFixed(0)+'%</div></div>';
+}
+html += '</div></div>';
+} else if (showFullPrediction) {
+// Full prediction for SCHEDULED
+html += '<div class="detail-grid">';
+html += '<div class="detail-card"><h4>📊 Pronóstico del Partido</h4>';
+const outcomes = [{lbl:'Local', prob:hw, color:'var(--primary)'},{lbl:'Empate', prob:dw, color:'var(--warning)'},{lbl:'Visita', prob:aw, color:'var(--info)'}];
+for (const o of outcomes) {
+const isBest = o.prob === maxP;
+html += '<div class="row"><span>'+(isBest?'🏆 ':'')+o.lbl+'</span><span class="val'+(isBest?' positive':'')+'">'+(o.prob*100).toFixed(1)+'%</span></div>';
+html += '<div class="prob-bar"><span style="width:'+(o.prob/maxP*100).toFixed(0)+'%;background:'+o.color+'"></span></div>';
+}
+html += '<div class="row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><span>Confianza</span><span class="val info">'+(p.confidence*100).toFixed(0)+'%</span></div>';
+html += '</div>';
+
+html += '<div class="detail-card"><h4>⚽ Goles Esperados</h4>';
+html += '<div class="row"><span>'+hn+'</span><span class="val">'+expH.toFixed(2)+'</span></div>';
+html += '<div class="row"><span>'+an+'</span><span class="val">'+expA.toFixed(2)+'</span></div>';
+html += '<div class="row"><span>Total</span><span class="val">'+totalExp.toFixed(2)+'</span></div>';
+if (d.exact_scores && d.exact_scores.length) {
+html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.375rem">Marcadores más probables:</div>';
+for (const s of d.exact_scores.slice(0,5)) {
+html += '<div class="row"><span>'+s.home+' - '+s.away+'</span><span class="val">'+(s.probability*100).toFixed(1)+'%</span></div>';
+}
+html += '</div>';
+}
+html += '</div>';
+
+if (d.markets) {
+html += '<div class="detail-card"><h4>🎯 Mercados</h4>';
+const ou = d.markets.over_under || {};
+if (ou.over_2_5 != null) {
+html += '<div class="row"><span>Over 2.5</span><span class="val '+(ou.over_2_5>0.5?'positive':'')+'">'+(ou.over_2_5*100).toFixed(0)+'%</span></div>';
+html += '<div class="row"><span>Under 2.5</span><span class="val '+(ou.under_2_5>0.5?'positive':'')+'">'+(ou.under_2_5*100).toFixed(0)+'%</span></div>';
+html += '<div class="row"><span>Over 3.5</span><span class="val">'+(ou.over_3_5*100).toFixed(0)+'%</span></div>';
+}
+const btts = d.markets.both_teams_score || {};
+if (btts.yes != null) {
+html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">';
+html += '<div class="row"><span>BTTS Sí</span><span class="val '+(btts.yes>0.5?'positive':'')+'">'+(btts.yes*100).toFixed(0)+'%</span></div>';
+html += '<div class="row"><span>BTTS No</span><span class="val '+(btts.no>0.5?'positive':'')+'">'+(btts.no*100).toFixed(0)+'%</span></div>';
+html += '</div>';
+}
+const dc = d.markets.double_chance || {};
+if (dc.home_or_draw != null) {
+html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">';
+html += '<div class="row"><span>Doble: '+hn+' o Empate</span><span class="val">'+(dc.home_or_draw*100).toFixed(0)+'%</span></div>';
+html += '<div class="row"><span>Doble: '+an+' o Empate</span><span class="val">'+(dc.draw_or_away*100).toFixed(0)+'%</span></div>';
+html += '</div>';
+}
+const eg = d.markets.exact_goals || {};
+const egKeys = Object.keys(eg);
+if (egKeys.length) {
+html += '<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.375rem">Goles exactos:</div>';
+for (const k of egKeys) {
+html += '<div class="row"><span>'+k+' goles</span><span class="val">'+(eg[k]*100).toFixed(0)+'%</span></div>';
+}
+html += '</div>';
+}
+html += '</div>';
+}
+html += '</div>';
+}
+}
+
+// Specials — only for SCHEDULED
+if (isScheduled) {
+html += '<div class="detail-card" style="margin-top:1rem"><h4>🌟 Especiales</h4>';
+html += '<div class="specials-grid">';
+html += '<div class="special-item"><div class="ico">⚽</div><div class="lbl">Anotador</div><div class="val">'+(d.specials?.anytime_goalscorer||'Por definir')+'</div></div>';
+html += '<div class="special-item"><div class="ico">🟨</div><div class="lbl">Tarjetas</div><div class="val">'+(d.specials?.player_cards||'Por definir')+'</div></div>';
+html += '<div class="special-item"><div class="ico">📐</div><div class="lbl">Tiros de Esquina</div><div class="val">'+(d.specials?.corners||'Por definir')+'</div></div>';
+html += '<div class="special-item"><div class="ico">💵</div><div class="lbl">Mercado</div><div class="val">Apuestas en vivo</div></div>';
+html += '</div></div>';
 }
 
 document.getElementById('modal-title').textContent = hn+' vs '+an;

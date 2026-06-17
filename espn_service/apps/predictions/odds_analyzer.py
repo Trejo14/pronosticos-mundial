@@ -1,6 +1,6 @@
-"""Odds analysis: edge, value, risk, and Kelly criterion calculations.
+"""Análisis de cuotas: edge, valor, Sharpe ratio, Kellyopt, bankroll management.
 
-All functions are pure math — no database or API dependencies.
+Todas las funciones son matemáticas puras — sin dependencias de API ni BD.
 """
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ class Analysis:
     expected_value: float
     kelly_fraction: float
     risk_label: str
+    sharpe_ratio: float = 0.0
+    kelly_half: float = 0.0       # Kelly fraccionario (half-Kelly)
+    kelly_quarter: float = 0.0    # Quarter-Kelly (ultraconservador)
 
 
 def american_to_decimal(american_odds: int) -> float:
@@ -53,28 +56,34 @@ def calculate_expected_value(our_prob: float, decimal_odds: float) -> float:
     return (our_prob * decimal_odds) - 1
 
 
-def calculate_kelly(our_prob: float, decimal_odds: float, bank_fraction: float = 0.05) -> float:
+def calculate_kelly(our_prob: float, decimal_odds: float) -> float:
+    """Kelly completo (peligroso — usar fraccional)."""
     b = decimal_odds - 1
     if b <= 0:
         return 0.0
     q = 1 - our_prob
     kelly = (our_prob * b - q) / b
-    if kelly <= 0:
+    return max(kelly, 0.0)
+
+
+def calculate_sharpe(our_prob: float, decimal_odds: float, kelly: float) -> float:
+    """Sharpe ratio aproximado para la apuesta.
+
+    Retorno esperado / desviación estándar.
+    """
+    if kelly <= 0 or decimal_odds <= 1:
         return 0.0
-    return min(kelly, bank_fraction)
+    ev = calculate_expected_value(our_prob, decimal_odds)
+    b = decimal_odds - 1
+    variance = (b ** 2) * our_prob * (1 - our_prob)
+    if variance <= 0:
+        return 0.0
+    std_dev = math.sqrt(variance)
+    return ev / std_dev if std_dev > 0 else 0.0
 
 
-def calculate_risk_label(
-    our_prob: float,
-    edge: float,
-    kelly: float,
-    is_tournament: bool = False,
-) -> str:
-    if is_tournament:
-        if kelly > 0.03:
-            return "low"
-        if kelly > 0.01:
-            return "medium"
+def calculate_risk_label(our_prob: float, edge: float, kelly: float) -> str:
+    if kelly <= 0:
         return "high"
     if edge > 0.15 and kelly > 0.03:
         return "low"
@@ -104,13 +113,15 @@ def analyze_outcome(
     outcome_name: str,
     our_prob: float,
     best_decimal_odds: float,
-    bank_fraction: float = 0.05,
 ) -> Analysis:
     implied = decimal_to_implied_prob(best_decimal_odds)
     edge = calculate_edge(our_prob, best_decimal_odds)
     ev = calculate_expected_value(our_prob, best_decimal_odds)
-    kelly = calculate_kelly(our_prob, best_decimal_odds, bank_fraction)
+    kelly = calculate_kelly(our_prob, best_decimal_odds)
+    kelly_half = kelly * 0.5
+    kelly_quarter = kelly * 0.25
     risk = calculate_risk_label(our_prob, edge, kelly)
+    sharpe = calculate_sharpe(our_prob, best_decimal_odds, kelly)
     return Analysis(
         outcome=outcome_name,
         our_probability=round(our_prob, 4),
@@ -120,6 +131,9 @@ def analyze_outcome(
         expected_value=round(ev, 4),
         kelly_fraction=round(kelly, 4),
         risk_label=risk,
+        sharpe_ratio=round(sharpe, 4),
+        kelly_half=round(kelly_half, 4),
+        kelly_quarter=round(kelly_quarter, 4),
     )
 
 
@@ -129,7 +143,7 @@ def find_best_odds(odds_list: list[dict]) -> dict[str, float]:
         for outcome in ["home", "draw", "away"]:
             val = provider_odds.get(f"{outcome}Odds") or provider_odds.get(outcome, {}).get("odds")
             if val and (outcome not in best or val > best[outcome]):
-                best[outcome] = val
+                best[outcome] = float(val)
     return best
 
 

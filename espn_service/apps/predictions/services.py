@@ -1,7 +1,11 @@
-"""Orchestration service: ties ESPN API client with prediction engine.
+"""Orchestration service: prediction engine with persistent Elo and form tracking.
 
-This is the main service that fetches data from ESPN, runs predictions,
-and returns structured results.
+Class-world prediction pipeline:
+- Persistent Elo ratings with temporal decay
+- Recent form tracking (last 5 matches weighted)
+- Attack/defense strength from recent results
+- Multi-model blending (Poisson, Dixon-Coles, Elo, form, market odds)
+- 365Scores live stats enrichment
 """
 from __future__ import annotations
 
@@ -14,9 +18,13 @@ from django.conf import settings
 from apps.predictions.feature_engineering import (
     INITIAL_ELO,
     TeamStrength,
+    build_team_strength,
     extract_team_stats_from_event,
     extract_team_stats_from_standings,
     fifa_ranking_to_elo,
+    get_elo,
+    save_elo,
+    update_elo,
 )
 from apps.predictions.odds_analyzer import (
     analyze_outcome,
@@ -75,13 +83,14 @@ def _events_to_dict(goals, bookings, substitutions) -> dict:
 
 
 class PredictionService:
-    """Main prediction service that coordinates data fetching and analysis."""
+    """Main prediction service with persistent Elo and form tracking."""
 
     def __init__(self, espn_client=None, stats_api_client=None):
         self.client = espn_client
         self.stats_api = stats_api_client
         self._team_elo_cache: dict[str, float] = {}
         self._team_att_def_cache: dict[str, dict[str, float]] = {}
+        self._team_recent_results: dict[str, list[dict]] = {}
         self._stats_api_available: bool | None = None
 
     def set_client(self, client):
@@ -225,20 +234,37 @@ class PredictionService:
         home_name = home_team_data.get("displayName", home_team_data.get("name", "Home"))
         away_name = away_team_data.get("displayName", away_team_data.get("name", "Away"))
 
-        home_elo = self._team_elo_cache.get(home_id, INITIAL_ELO)
-        away_elo = self._team_elo_cache.get(away_id, INITIAL_ELO)
+        home_elo = self._team_elo_cache.get(home_id) or get_elo(home_id)
+        away_elo = self._team_elo_cache.get(away_id) or get_elo(away_id)
+        self._team_elo_cache[home_id] = home_elo
+        self._team_elo_cache[away_id] = away_elo
+
         home_att = self._team_att_def_cache.get(home_id, {}).get("attacking", 1.0)
         home_def = self._team_att_def_cache.get(home_id, {}).get("defensive", 1.0)
         away_att = self._team_att_def_cache.get(away_id, {}).get("attacking", 1.0)
         away_def = self._team_att_def_cache.get(away_id, {}).get("defensive", 1.0)
 
+        # Form data from recent results
+        home_results = self._team_recent_results.get(home_id, [])
+        away_results = self._team_recent_results.get(away_id, [])
+        home_form_pts = (sum(1 for r in home_results if r.get("gf", 0) > r.get("ga", 0)) * 3 +
+                         sum(1 for r in home_results if r.get("gf", 0) == r.get("ga", 0))) / max(len(home_results), 1) / 3
+        away_form_pts = (sum(1 for r in away_results if r.get("gf", 0) > r.get("ga", 0)) * 3 +
+                         sum(1 for r in away_results if r.get("gf", 0) == r.get("ga", 0))) / max(len(away_results), 1) / 3
+        home_recent_gf = sum(r.get("gf", 0) for r in home_results) / max(len(home_results), 1)
+        away_recent_gf = sum(r.get("gf", 0) for r in away_results) / max(len(away_results), 1)
+        home_recent_ga = sum(r.get("ga", 0) for r in home_results) / max(len(home_results), 1)
+        away_recent_ga = sum(r.get("ga", 0) for r in away_results) / max(len(away_results), 1)
+
         home_info = TeamInfo(
             espn_id=home_id, name=home_name, abbreviation=home_team_data.get("abbreviation", ""),
             elo=home_elo, attacking=home_att, defensive=home_def,
+            form_pts=home_form_pts, recent_gf=home_recent_gf, recent_ga=home_recent_ga,
         )
         away_info = TeamInfo(
             espn_id=away_id, name=away_name, abbreviation=away_team_data.get("abbreviation", ""),
             elo=away_elo, attacking=away_att, defensive=away_def,
+            form_pts=away_form_pts, recent_gf=away_recent_gf, recent_ga=away_recent_ga,
         )
 
         espn_probs = extract_espn_win_probs(event_data)
@@ -267,7 +293,7 @@ class PredictionService:
         if odds_list:
             market_probs = parse_odds_into_probs(odds_list)
 
-        prediction = predict_match(home_info, away_info, espn_probs)
+        prediction = predict_match(home_info, away_info, espn_win_probs=espn_probs, market_probs=market_probs)
 
         raw_odds = find_best_odds(odds_list) if odds_list else {}
 
@@ -552,15 +578,40 @@ class PredictionService:
         if m.goals or m.bookings or m.substitutions:
             result["events"] = _events_to_dict(m.goals, m.bookings, m.substitutions)
 
-        # Run prediction
-        home_elo = self._team_elo_cache.get(sid_home, INITIAL_ELO)
-        away_elo = self._team_elo_cache.get(sid_away, INITIAL_ELO)
+        # Run prediction with persistent Elo and form data
+        home_elo = self._team_elo_cache.get(sid_home) or get_elo(sid_home)
+        away_elo = self._team_elo_cache.get(sid_away) or get_elo(sid_away)
+        self._team_elo_cache[sid_home] = home_elo
+        self._team_elo_cache[sid_away] = away_elo
+
         home_att = self._team_att_def_cache.get(sid_home, {}).get("attacking", 1.0)
         home_def = self._team_att_def_cache.get(sid_home, {}).get("defensive", 1.0)
         away_att = self._team_att_def_cache.get(sid_away, {}).get("attacking", 1.0)
         away_def = self._team_att_def_cache.get(sid_away, {}).get("defensive", 1.0)
-        home_info = TeamInfo(espn_id=sid_home, name=m.home_team_name, abbreviation=m.home_team_tla or m.home_team_name[:3].upper(), elo=home_elo, attacking=home_att, defensive=home_def)
-        away_info = TeamInfo(espn_id=sid_away, name=m.away_team_name, abbreviation=m.away_team_tla or m.away_team_name[:3].upper(), elo=away_elo, attacking=away_att, defensive=away_def)
+
+        home_results = self._team_recent_results.get(sid_home, [])
+        away_results = self._team_recent_results.get(sid_away, [])
+        home_form_pts = (sum(3 for r in home_results if r.get("gf", 0) > r.get("ga", 0)) +
+                         sum(1 for r in home_results if r.get("gf", 0) == r.get("ga", 0))) / max(len(home_results), 1) / 3
+        away_form_pts = (sum(3 for r in away_results if r.get("gf", 0) > r.get("ga", 0)) +
+                         sum(1 for r in away_results if r.get("gf", 0) == r.get("ga", 0))) / max(len(away_results), 1) / 3
+        home_rgf = sum(r.get("gf", 0) for r in home_results) / max(len(home_results), 1)
+        away_rgf = sum(r.get("gf", 0) for r in away_results) / max(len(away_results), 1)
+        home_rga = sum(r.get("ga", 0) for r in home_results) / max(len(home_results), 1)
+        away_rga = sum(r.get("ga", 0) for r in away_results) / max(len(away_results), 1)
+
+        home_info = TeamInfo(
+            espn_id=sid_home, name=m.home_team_name,
+            abbreviation=m.home_team_tla or m.home_team_name[:3].upper(),
+            elo=home_elo, attacking=home_att, defensive=home_def,
+            form_pts=home_form_pts, recent_gf=home_rgf, recent_ga=home_rga,
+        )
+        away_info = TeamInfo(
+            espn_id=sid_away, name=m.away_team_name,
+            abbreviation=m.away_team_tla or m.away_team_name[:3].upper(),
+            elo=away_elo, attacking=away_att, defensive=away_def,
+            form_pts=away_form_pts, recent_gf=away_rgf, recent_ga=away_rga,
+        )
         pred = predict_match(home_info, away_info, espn_win_probs=None)
         result["prediction"] = {
             "home_win": pred.home_win,
@@ -571,6 +622,8 @@ class PredictionService:
             "home_strength": pred.home_strength,
             "away_strength": pred.away_strength,
             "confidence": pred.confidence,
+            "model_agreement": pred.model_agreement,
+            "xG": {"home": pred.home_xg, "away": pred.away_xg},
         }
         # Build exact scores list
         from apps.predictions.prediction_engine import poisson_prob as pp
@@ -624,7 +677,6 @@ class PredictionService:
                         "game_time": stats.game_time_display,
                         "game_minute": int(stats.game_time) if stats.game_time >= 0 else None,
                     }
-                    # Chart events (xG shots)
                     xg_data = []
                     for ce in stats.chart_events:
                         xg_data.append({
@@ -640,6 +692,28 @@ class PredictionService:
                         result["xg_chart"] = xg_data
         except Exception as exc:
             logger.debug("scores365_enrich_failed", error=str(exc))
+
+        # Update Elo for finished matches
+        if m.status in ("FINISHED",) and m.score_home is not None and m.score_away is not None:
+            try:
+                from apps.predictions.feature_engineering import update_elo
+                new_home_elo, new_away_elo = update_elo(
+                    home_elo, away_elo,
+                    float(m.score_home), float(m.score_away),
+                    margin=abs(m.score_home - m.score_away),
+                )
+                save_elo(sid_home, new_home_elo)
+                save_elo(sid_away, new_away_elo)
+                self._team_elo_cache[sid_home] = new_home_elo
+                self._team_elo_cache[sid_away] = new_away_elo
+                # Track results for form
+                for sid, gf, ga in [(sid_home, m.score_home, m.score_away), (sid_away, m.score_away, m.score_home)]:
+                    if sid not in self._team_recent_results:
+                        self._team_recent_results[sid] = []
+                    self._team_recent_results[sid].insert(0, {"gf": gf, "ga": ga})
+                    self._team_recent_results[sid] = self._team_recent_results[sid][:10]
+            except Exception as exc:
+                logger.debug("elo_update_failed", error=str(exc))
 
         result["specials"] = {
             "anytime_goalscorer": f"Jugador de {home_info.name if expH > expA else away_info.name} (mayor probabilidad de gol)",

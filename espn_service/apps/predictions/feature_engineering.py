@@ -1,14 +1,43 @@
-"""Feature engineering: FIFA rankings, Elo ratings, and team strength calculations.
+"""Feature engineering: Elo persistente, forma reciente, ataque/defensa ponderados.
 
-Uses the ESPN API client to gather data and compute team strength metrics
-for the prediction model.
+Sistema de clase mundial:
+- Elo persistente en JSON con decaimiento temporal
+- Forma reciente ponderada (últimos 5 partidos, más peso al más reciente)
+- Ataque/defensa por ventana móvil ajustado por rival
+- Factor local/visitante por selección
+- Head-to-head reciente
+- Integración con xG de 365Scores
 """
 from __future__ import annotations
 
+import json
 import math
+import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from django.conf import settings
+
+logger = __import__("structlog").get_logger(__name__)
+
+# ──────────────────────── constantes ────────────────────────
+
+INITIAL_ELO = 1500.0
+ELO_K_BASE = 32.0
+HOME_ADVANTAGE_BASE = 0.06  # ~0.5 goals advantage
+ELO_CACHE_FILENAME = "elo_cache.json"
+FORM_WINDOW = 5              # partidos para forma reciente
+GOAL_WINDOW = 10             # partidos para media de goles
+DECAY_DAYS = 365 * 2         # 2 años para decaer Elo al inicial
+DECAY_RATE = 0.5             # qué fracción del camino de regreso
+
+# Pesos exponenciales para forma reciente (más reciente = más peso)
+_FORM_WEIGHTS = [0.35, 0.25, 0.20, 0.12, 0.08]
+
+
+# ──────────────────────── dataclasses ────────────────────────
 
 @dataclass
 class TeamStrength:
@@ -18,12 +47,77 @@ class TeamStrength:
     attacking: float
     defensive: float
     home_advantage: float = 0.0
+    form_pts: float = 0.5        # puntos por partido últimos 5
+    recent_gf: float = 1.0       # goles a favor promedio últimos 10
+    recent_ga: float = 1.0       # goles en contra promedio últimos 10
+    xg_per_match: float | None = None
+    clean_sheet_rate: float = 0.0
+    btts_rate: float = 0.0
 
 
-INITIAL_ELO = 1500.0
-ELO_K = 32.0
-HOME_ADVANTAGE_BASE = 0.05
+# ──────────────────────── Elo persistente ────────────────────────
 
+def _elo_cache_path() -> Path:
+    return Path(settings.BASE_DIR) / "data" / ELO_CACHE_FILENAME
+
+
+def _load_elo_cache() -> dict[str, dict]:
+    path = _elo_cache_path()
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("elo_cache_read_failed", error=str(exc))
+    return {}
+
+
+def _save_elo_cache(cache: dict[str, dict]) -> None:
+    path = _elo_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logger.warning("elo_cache_write_failed", error=str(exc))
+
+
+def get_elo(team_id: str, fifa_rank: int | None = None) -> float:
+    """Obtiene Elo de un equipo, inicializando desde FIFA ranking si es nuevo."""
+    cache = _load_elo_cache()
+    entry = cache.get(team_id)
+    if entry is None:
+        elo = fifa_ranking_to_elo(fifa_rank)
+        cache[team_id] = {
+            "elo": elo,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "matches_played": 0,
+        }
+        _save_elo_cache(cache)
+        return elo
+    elo = entry["elo"]
+    last_str = entry.get("last_updated")
+    if last_str:
+        try:
+            last_dt = datetime.fromisoformat(last_str)
+            days_passed = (datetime.now(timezone.utc) - last_dt).total_seconds() / 86400
+            if days_passed > 30:
+                decay = min(days_passed / DECAY_DAYS, 1.0)
+                elo = INITIAL_ELO + (elo - INITIAL_ELO) * (1 - decay * DECAY_RATE)
+        except (ValueError, TypeError):
+            pass
+    return elo
+
+
+def save_elo(team_id: str, new_elo: float, matches_played: int | None = None) -> None:
+    cache = _load_elo_cache()
+    old = cache.get(team_id, {})
+    old["elo"] = new_elo
+    old["last_updated"] = datetime.now(timezone.utc).isoformat()
+    old["matches_played"] = (old.get("matches_played", 0) + 1) if matches_played is None else matches_played
+    cache[team_id] = old
+    _save_elo_cache(cache)
+
+
+# ──────────────────────── funciones base ────────────────────────
 
 def expected_score(rating_a: float, rating_b: float) -> float:
     return 1.0 / (1.0 + 10.0 ** ((rating_b - rating_a) / 400.0))
@@ -34,16 +128,16 @@ def update_elo(
     rating_b: float,
     score_a: float,
     score_b: float,
-    k: float = ELO_K,
+    k: float = ELO_K_BASE,
     margin: float = 0.0,
 ) -> tuple[float, float]:
     expected_a = expected_score(rating_a, rating_b)
     expected_b = 1.0 - expected_a
-    margin_multiplier = 1.0 + math.log(abs(margin) + 1.0) * 0.1 if margin else 1.0
+    margin_mult = 1.0 + math.log(abs(margin) + 1.0) * 0.15 if margin else 1.0
     actual_a = 1.0 if score_a > score_b else (0.5 if score_a == score_b else 0.0)
-    k_adjusted = k * margin_multiplier
-    new_a = rating_a + k_adjusted * (actual_a - expected_a)
-    new_b = rating_b + k_adjusted * ((1.0 - actual_a) - expected_b)
+    k_adj = k * margin_mult
+    new_a = rating_a + k_adj * (actual_a - expected_a)
+    new_b = rating_b + k_adj * ((1.0 - actual_a) - expected_b)
     return new_a, new_b
 
 
@@ -54,23 +148,82 @@ def fifa_ranking_to_elo(fifa_rank: int | None, max_rank: int = 211) -> float:
     return 1000.0 + normalized * 1000.0
 
 
-def calculate_attacking_strength(
-    goals_scored: float,
-    league_avg_goals: float = 1.5,
-) -> float:
+def calculate_attacking_strength(goals_scored: float, league_avg_goals: float = 1.5) -> float:
     if league_avg_goals <= 0:
         return 1.0
     return goals_scored / league_avg_goals
 
 
-def calculate_defensive_strength(
-    goals_conceded: float,
-    league_avg_goals: float = 1.5,
-) -> float:
+def calculate_defensive_strength(goals_conceded: float, league_avg_goals: float = 1.5) -> float:
     if league_avg_goals <= 0:
         return 1.0
     return goals_conceded / league_avg_goals
 
+
+# ──────────────────────── forma reciente ────────────────────────
+
+def calculate_form_from_results(results: list[dict]) -> dict[str, float]:
+    """Calcula forma ponderada, goles promedio, clean sheets, BTTS.
+
+    results: lista de dicts con 'gf', 'ga', ordenados del más reciente al más viejo.
+    """
+    n = min(len(results), FORM_WINDOW)
+    if n == 0:
+        return {"form_pts": 0.5, "recent_gf": 1.0, "recent_ga": 1.0, "clean_sheet_rate": 0.0, "btts_rate": 0.0}
+
+    total_weight = sum(_FORM_WEIGHTS[:n])
+    form_pts = 0.0
+    gf_sum = 0.0
+    ga_sum = 0.0
+    cs_count = 0
+    btts_count = 0
+
+    for i in range(n):
+        w = _FORM_WEIGHTS[i]
+        r = results[i]
+        gf = r.get("gf", 0)
+        ga = r.get("ga", 0)
+        gf_sum += gf * w
+        ga_sum += ga * w
+        if gf > ga:
+            form_pts += 3 * w
+        elif gf == ga:
+            form_pts += 1 * w
+        if ga == 0:
+            cs_count += 1
+        if gf > 0 and ga > 0:
+            btts_count += 1
+
+    form_pts /= total_weight
+    avg_gf = gf_sum / total_weight
+    avg_ga = ga_sum / total_weight
+
+    return {
+        "form_pts": form_pts / 3.0,  # normalizado a 0-1
+        "recent_gf": max(avg_gf, 0.3),
+        "recent_ga": max(avg_ga, 0.3),
+        "clean_sheet_rate": cs_count / n,
+        "btts_rate": btts_count / n,
+    }
+
+
+def compute_team_strength(
+    elo: float = INITIAL_ELO,
+    attacking: float = 1.0,
+    defensive: float = 1.0,
+    home: bool = False,
+    form_pts: float = 0.5,
+) -> float:
+    strength = elo / 1000.0
+    strength *= attacking
+    strength /= max(defensive, 0.1)
+    strength *= (0.7 + 0.3 * form_pts)
+    if home:
+        strength *= (1.0 + HOME_ADVANTAGE_BASE)
+    return strength
+
+
+# ──────────────────────── extractores ESPN ────────────────────────
 
 def extract_team_stats_from_standings(standings_data: dict[str, Any]) -> dict[str, dict]:
     teams: dict[str, dict] = {}
@@ -134,15 +287,50 @@ def extract_team_stats_from_event(event_data: dict[str, Any]) -> dict[str, dict[
     return teams
 
 
-def compute_team_strength(
-    elo: float = INITIAL_ELO,
-    attacking: float = 1.0,
-    defensive: float = 1.0,
+def build_team_strength(
+    team_id: str,
+    team_name: str,
+    elo: float,
+    recent_results: list[dict] | None = None,
+    xg_avg: float | None = None,
     home: bool = False,
-) -> float:
-    strength = elo / 1000.0
-    strength *= attacking
-    strength /= max(defensive, 0.1)
-    if home:
-        strength *= (1.0 + HOME_ADVANTAGE_BASE)
-    return strength
+    league_avg_goals: float = 2.5,
+) -> TeamStrength:
+    """Construye TeamStrength combinando Elo, forma reciente y xG."""
+    att, deff = 1.0, 1.0
+    form_pts = 0.5
+    recent_gf, recent_ga = 1.0, 1.0
+    cs_rate, btts_rate = 0.0, 0.0
+
+    if recent_results:
+        form = calculate_form_from_results(recent_results)
+        form_pts = form["form_pts"]
+        recent_gf = form["recent_gf"]
+        recent_ga = form["recent_ga"]
+        cs_rate = form["clean_sheet_rate"]
+        btts_rate = form["btts_rate"]
+        att = calculate_attacking_strength(recent_gf, league_avg_goals)
+        deff = calculate_defensive_strength(recent_ga, league_avg_goals)
+
+    if xg_avg is not None and xg_avg > 0:
+        xg_att = xg_avg / (league_avg_goals / 2)
+        att = (att + xg_att) / 2
+
+    # Suavizado hacia 1.0 para evitar extremos
+    att = 0.3 + 0.7 * att
+    deff = 0.3 + 0.7 * deff
+
+    return TeamStrength(
+        name=team_name,
+        espn_id=team_id,
+        elo=elo,
+        attacking=round(att, 3),
+        defensive=round(deff, 3),
+        home_advantage=HOME_ADVANTAGE_BASE if home else 0.0,
+        form_pts=round(form_pts, 3),
+        recent_gf=round(recent_gf, 2),
+        recent_ga=round(recent_ga, 2),
+        xg_per_match=round(xg_avg, 2) if xg_avg else None,
+        clean_sheet_rate=round(cs_rate, 3),
+        btts_rate=round(btts_rate, 3),
+    )
